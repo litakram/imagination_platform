@@ -28,6 +28,7 @@ html, body {
 }
 
 /* Start screen */
+
 #startScreen {
   position: absolute;
   top: 0;
@@ -35,18 +36,24 @@ html, body {
   right: 0;
   bottom: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #e8eaf6, #f3f4f6);
+  justify-content: flex-start;
+  background: var(--gradient-primary);
   cursor: pointer;
   z-index: 100;
 }
 #startScreen h1 {
   margin: 0;
-  padding: 1rem;
-  font-size: 2.5rem;
-  color: var(--text-dark);
+  padding: 2.5rem 1rem 1rem 1rem;
+  font-size: 2.6rem; /* Slightly smaller for potentially longer French text */
+  color: #fff;
   text-align: center;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-shadow: 0 4px 24px rgba(65,105,225,0.18), 0 2px 8px rgba(255,105,180,0.12);
+  max-width: 90%;
+  line-height: 1.2;
 }
 
 /* Hide elements by applying the hidden class */
@@ -89,6 +96,8 @@ html, body {
 #topPrompt #promptText {
   font-size: 1rem;
   color: var(--text-dark);
+  line-height: 1.4;
+  margin-bottom: 5px;
 }
 .progressBar {
   position: relative;
@@ -333,6 +342,46 @@ html, body {
   gap: 12px;
 }
 
+/* Personal prompt container and styles */
+.prompt-container {
+  width: 90%;
+  margin-bottom: 8px;
+}
+
+.prompt-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 1.1rem;
+  text-align: center;
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.personal-prompt {
+  width: 100%;
+  height: 60px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background-color: white;
+  resize: none;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--text-dark);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.personal-prompt:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.2);
+}
+
 .carousel-wrapper {
   display: flex;
   align-items: center;
@@ -447,6 +496,8 @@ html, body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   margin-bottom: 10px;
   text-transform: uppercase;
+  /* Ensure French accented characters display properly */
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 .generateBtn:hover {
   background: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);

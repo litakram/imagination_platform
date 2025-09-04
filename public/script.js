@@ -44,6 +44,43 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastGuess = '';
   let lastAnswer = '';
   let selectedStyle = '';
+  
+  // Helper function to determine the correct French article
+  function getArticle(word) {
+    // Default to indefinite masculine "un"
+    let article = "un";
+    
+    // Common feminine words for basic detection
+    const feminineWords = [
+      'maison', 'voiture', 'table', 'chaise', 'fleur', 'montagne', 'rivière',
+      'plage', 'pomme', 'banane', 'orange', 'fraise', 'tomate', 'carotte',
+      'personne', 'femme', 'fille', 'tête', 'main', 'jambe', 'bouche', 'dent',
+      'porte', 'fenêtre', 'école', 'ville', 'rue', 'plante', 'étoile', 'lune'
+    ];
+    
+    // Common plural words
+    const pluralWords = [
+      'montagnes', 'arbres', 'fleurs', 'personnes', 'animaux', 'oiseaux', 
+      'poissons', 'chats', 'chiens', 'maisons', 'voitures', 'étoiles', 
+      'enfants', 'femmes', 'hommes', 'fruits', 'légumes'
+    ];
+    
+    // Words that start with vowel sounds need "l'"
+    const vowelStart = /^[aeiouàâéèêëîïôùûüÿæœ]/i;
+    
+    // Basic rule checking - very simplified
+    const lowercaseWord = word.toLowerCase();
+    
+    if (pluralWords.some(plural => lowercaseWord.includes(plural))) {
+      article = "des";
+    } else if (feminineWords.some(fem => lowercaseWord.includes(fem))) {
+      article = vowelStart.test(word) ? "l'" : "une";
+    } else {
+      article = vowelStart.test(word) ? "l'" : "un";
+    }
+    
+    return article;
+  }
 
   // Colour palette (2 rows of 4)
   const palette = [
@@ -59,12 +96,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Style options
   const styles = [
-    'Watercolor',
+    'Aquarelle',
     'Illustration',
     'Pop Art',
-    'Sketch',
-    '3D Cartoon',
-    'Oil Painting',
+    'Croquis',
+    'Dessin Animé 3D',
+    'Peinture à l\'huile',
   ];
 
   /**
@@ -363,7 +400,9 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function showPrompt(guess) {
     lastGuess = guess;
-    promptText.textContent = `Is it ${guess}?`;
+    // Format the question in French with proper article
+    let article = getArticle(guess);
+    promptText.textContent = `Est-ce que c'est ${article} ${guess} ?`;
     topPrompt.classList.remove('hidden');
     // Restart progress bar animation by cloning and replacing the element
     const progressBarEl = topPrompt.querySelector('.progress');
@@ -479,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Generate button sends the final drawing to the server and displays the result
   generateBtn.addEventListener('click', async () => {
     if (paths.length === 0) {
-      alert('Please draw something first!');
+      alert('Veuillez dessiner quelque chose d\'abord !');
       return;
     }
     // Cancel any pending prompt
@@ -487,11 +526,16 @@ document.addEventListener('DOMContentLoaded', () => {
     showLoader();
     try {
       const dataUrl = canvas.toDataURL('image/png');
+      // Get the personal prompt if available
+      const personalPromptInput = document.getElementById('personalPrompt');
+      const personalPrompt = personalPromptInput ? personalPromptInput.value.trim() : '';
+      
       const payload = {
         image: dataUrl,
         style: selectedStyle,
         question: lastGuess,
         answer: lastAnswer,
+        personalPrompt: personalPrompt // Add the personal prompt to the payload
       };
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -504,12 +548,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showResult(json.image);
       } else {
         console.error('Generation error:', json.error);
-        alert('An error occurred while generating the image.');
+        alert('Une erreur est survenue lors de la génération de l\'image.');
       }
     } catch (err) {
       hideLoader();
       console.error('Generation failed', err);
-      alert('An error occurred while generating the image.');
+      alert('Une erreur est survenue lors de la génération de l\'image.');
     }
   });
 
@@ -575,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sketchesGallery.innerHTML = '';
     
     if (savedSketches.length === 0) {
-      sketchesGallery.innerHTML = '<p>No sketches uploaded yet. Click "Upload Sketches" to add some.</p>';
+      sketchesGallery.innerHTML = '<p>Aucun croquis importé pour le moment. Cliquez sur "Importer Croquis" pour en ajouter.</p>';
       return;
     }
     
@@ -647,11 +691,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Save current canvas as an important sketch
   function saveCurrentSketchAsImportant() {
     if (paths.length === 0) {
-      alert('Please draw something first!');
+      alert('Veuillez dessiner quelque chose d\'abord !');
       return;
     }
     
-    const sketchName = prompt('Enter a name for this sketch:', 'Sketch ' + (savedSketches.length + 1));
+    const sketchName = prompt('Entrez un nom pour ce croquis:', 'Croquis ' + (savedSketches.length + 1));
     if (!sketchName) return;
     
     const imageData = canvas.toDataURL('image/png');
@@ -663,7 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     localStorage.setItem('importantSketches', JSON.stringify(savedSketches));
-    alert('Sketch saved successfully!');
+    alert('Croquis enregistré avec succès !');
   }
   
   // Add right-click context menu to canvas for saving sketches

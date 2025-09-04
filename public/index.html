@@ -3,15 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Imagination Platform Remake</title>
+  <title>Plateforme d'Imagination</title>
   <link rel="stylesheet" href="style.css">
   <script src="script.js"></script>
 </head>
 <body>
   <!-- Start screen with hook text -->
   <div id="startScreen" class="centered">
-  <h1>Make your imagination reality</h1>
-</div>
+    <h1>Donnez vie à votre imagination</h1>
+    <!-- You can add more details below the header here -->
+  </div>
 
   <!-- Main application container; hidden until user clicks start screen -->
   <div id="app" class="hidden">
@@ -23,8 +24,8 @@
       <div id="promptText"></div>
       <div class="progressBar"><div class="progress"></div></div>
       <div class="promptButtons">
-        <button id="yesBtn" class="promptBtn">Yes</button>
-        <button id="noBtn" class="promptBtn">No</button>
+        <button id="yesBtn" class="promptBtn">Oui</button>
+        <button id="noBtn" class="promptBtn">Non</button>
       </div>
     </div>
 
@@ -32,54 +33,58 @@
     <div id="sidePanel" class="closed">
       <button id="togglePanel" class="toggleHandle">&#9776;</button>
       <div class="toolBar">
-        <button id="eraserBtn" class="toolButton" title="Eraser">🧽</button>
-        <div id="sizeSliderContainer" title="Brush size">
+        <button id="eraserBtn" class="toolButton" title="Gomme">🧽</button>
+        <div id="sizeSliderContainer" title="Taille du pinceau">
           <input type="range" min="2" max="40" value="4" id="sizeSlider">
         </div>
-        <div id="colorPicker" title="Colours">
+        <div id="colorPicker" title="Couleurs">
           <div id="currentColor" class="colorDisplay"></div>
           <div id="colorMenu" class="colorMenu hidden"></div>
         </div>
-        <button id="undoBtn" class="toolButton" title="Undo">↶</button>
+        <button id="undoBtn" class="toolButton" title="Annuler">↶</button>
         
         <!-- Divider for bottom panel buttons -->
         <div class="panel-divider"></div>
         
         <!-- Important sketches and GS Engine buttons -->
-        <button id="importantSketchesBtn" class="toolButton" title="Important Sketches">📁</button>
-        <button id="gsToggleBtn" class="toolButton" title="Toggle Code Visibility">{ }</button>
+        <button id="importantSketchesBtn" class="toolButton" title="Croquis Importants">📁</button>
+        <button id="gsToggleBtn" class="toolButton" title="Afficher/Masquer le Code">{ }</button>
       </div>
     </div>
 
     <!-- Bottom panel with style carousel and generate button -->
     <div id="bottomPanel">
       <div class="bottom-content">
+        <div class="prompt-container">
+          <label for="personalPrompt" class="prompt-label">Ajoutez votre touche personnelle à votre imagination</label>
+          <textarea id="personalPrompt" class="personal-prompt" placeholder="Entrez votre instruction personnalisée ici..."></textarea>
+        </div>
         <div id="styleCarousel"></div>
-        <button id="generateBtn" class="generateBtn">Generate</button>
+        <button id="generateBtn" class="generateBtn">Générer</button>
       </div>
     </div>
 
     <!-- Loader overlay shown during API calls -->
     <div id="loader" class="overlay hidden">
       <div class="spinner"></div>
-      <p class="loaderText">Processing your image…</p>
+      <p class="loaderText">Traitement de votre image…</p>
     </div>
 
     <!-- Result container shown after generating the final image -->
     <div id="resultContainer" class="overlay hidden">
       <img id="resultImage" alt="Generated image" class="resultImage">
-      <button id="backBtn" class="backBtn">Back to drawing</button>
+      <button id="backBtn" class="backBtn">Retour au dessin</button>
     </div>
   </div>
 
   <!-- Important Sketches Section -->
   <div id="importantSketchesSection" class="overlay hidden">
     <div class="sketches-container">
-      <h2 style="margin-top: 0; color: var(--text-dark); font-size: 1.75rem; border-bottom: 2px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">Important Sketches</h2>
+      <h2 style="margin-top: 0; color: var(--text-dark); font-size: 1.75rem; border-bottom: 2px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">Croquis Importants</h2>
       <div class="sketches-controls" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
         <input type="file" id="sketchUpload" accept="image/*" multiple>
-        <label for="sketchUpload" class="upload-btn">Upload Sketches</label>
-        <button id="closeSketchesBtn" class="close-btn">Close</button>
+        <label for="sketchUpload" class="upload-btn">Importer Croquis</label>
+        <button id="closeSketchesBtn" class="close-btn">Fermer</button>
       </div>
       <div id="sketchesGallery" class="sketches-gallery">
         <!-- Sketches will be displayed here -->

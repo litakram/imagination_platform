@@ -1,6 +1,6 @@
-# Imagination Platform Remake
+# Imagination Platform 
 
-This repository contains a full‑stack web application that lets users draw on a canvas in a mall kiosk and transform their sketches into polished artwork using AI. 
+This repository contains a full‑stack web application that lets users draw on a canvas in a mall kiosk and transform their sketches into polished artwork using AI.
 
 ## Features
 
