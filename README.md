@@ -1,6 +1,6 @@
 # Imagination Platform Remake
 
-This repository contains a full‑stack web application that lets users draw on a canvas in a mall kiosk and transform their sketches into polished artwork using AI.  It is a remake of a previous prototype with a cleaner architecture and modernised user interface.
+This repository contains a full‑stack web application that lets users draw on a canvas in a mall kiosk and transform their sketches into polished artwork using AI. 
 
 ## Features
 
@@ -18,7 +18,6 @@ imagination_platform_remake
 ├── server.js          # Express backend with two API endpoints
 ├── package.json       # Node dependencies and scripts
 ├── .env.example       # Template for environment variables
-├── instructions.txt   # Step‑by‑step setup guide
 ├── README.md          # This file
 └── public/            # Static front‑end files served by Express
     ├── index.html     # Entry point with canvas and UI
