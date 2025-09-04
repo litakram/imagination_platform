@@ -1,0 +1,524 @@
+/*
+ * Styles for the Imagination Platform Remake
+ *
+ * This stylesheet defines the layout and appearance of the drawing app.  It
+ * utilises CSS variables for colours to make it easy to adjust the theme.
+ */
+
+/* CSS variables for easy theme tweaking */
+:root {
+  --bg-color: #f9fafb;
+  --primary: #4169e1; /* Royal Blue - matches gradient start */
+  --secondary: #ff69b4; /* Hot Pink - matches gradient end */
+  --accent: #ff4dab; /* Darker pink for hover states */
+  --text-dark: #374151;
+  --panel-bg: rgba(250, 250, 250, 0.95);
+  --panel-border: #d1d5db;
+  --gradient-primary: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  --gradient-hover: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);
+  --gradient-active: linear-gradient(135deg, #ff69b4 0%, #4169e1 100%);
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--bg-color);
+}
+
+/* Start screen */
+#startScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e8eaf6, #f3f4f6);
+  cursor: pointer;
+  z-index: 100;
+}
+#startScreen h1 {
+  margin: 0;
+  padding: 1rem;
+  font-size: 2.5rem;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+/* Hide elements by applying the hidden class */
+.hidden {
+  display: none !important;
+}
+
+/* Application container */
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Canvas styling */
+#drawingCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  cursor: crosshair;
+}
+
+/* Prompt container for AI questions */
+#topPrompt {
+  position: absolute;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 1rem 1.5rem;
+  min-width: 240px;
+  z-index: 20;
+  text-align: center;
+}
+#topPrompt #promptText {
+  font-size: 1rem;
+  color: var(--text-dark);
+}
+.progressBar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: #e5e7eb;
+  margin-top: 0.5rem;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #4169e1 0%, #ff69b4 100%);
+  animation: progressFill 4s linear forwards;
+}
+@keyframes progressFill {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+.promptButtons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+.promptBtn {
+  flex: 1;
+  margin: 0 0.25rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.promptBtn:hover {
+  background: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Side panel */
+#sidePanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 68px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1rem;
+  transition: transform 0.3s ease;
+  z-index: 15;
+}
+#sidePanel.closed {
+  transform: translateX(100%);
+}
+.toggleHandle {
+  position: absolute;
+  left: -44px;
+  top: 1rem;
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  color: #fff;
+  border: none;
+  border-radius: 4px 0 0 4px;
+  padding: 0.5rem 0.4rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.toggleHandle:hover {
+  background: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+.toolBar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+.toolButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  color: #fff;
+  border: none;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.toolButton.active {
+  background: linear-gradient(135deg, #ff69b4 0%, #4169e1 100%); /* Reversed gradient for active state */
+  box-shadow: 0 4px 10px rgba(255, 105, 180, 0.4);
+  transform: scale(1.1);
+}
+.toolButton.active-eraser {
+  background: #ffffff; /* White background to represent eraser */
+  color: #333333; /* Darker text color for visibility */
+  border: 2px solid #e0e0e0; /* Light border */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15), 
+              inset 0 0 0 1px rgba(255, 255, 255, 0.8),
+              0 0 0 2px rgba(255, 255, 255, 0.9),
+              0 0 8px rgba(0, 0, 0, 0.1);
+  transform: scale(1.1);
+  position: relative;
+}
+
+.toolButton.active-eraser::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  background-color: #ff4d4d; /* Red indicator dot */
+  border-radius: 50%;
+  border: 1px solid white;
+}
+.toolButton:hover {
+  background: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+/* Brush size slider container */
+#sizeSliderContainer {
+  width: 36px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Rotate the range input to appear vertical */
+#sizeSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 8px;
+  background: #d1d5db;
+  border-radius: 4px;
+  transform: rotate(-90deg);
+  outline: none;
+  cursor: pointer;
+}
+#sizeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+#sizeSlider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Colour picker */
+#colorPicker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+.colorDisplay {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--panel-border);
+  box-sizing: border-box;
+}
+.colorMenu {
+  position: absolute;
+  top: 50%;
+  /* Position the palette well outside the side panel.  The side panel
+   * itself is 68px wide and the colour picker roughly 36px.  Adding
+   * ~76px ensures the palette sits to the left of the panel with a
+   * small gap.  Adjust this value if you change the panel width. */
+  right: calc(100% + 0px);
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  /* Hide the palette by default; toggled via JS */
+  z-index: 100;
+}
+.colorMenu .colorOption {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  cursor: pointer;
+}
+
+/* Bottom panel */
+#bottomPanel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--panel-bg);
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  z-index: 15;
+  height: auto;
+  min-height: 160px;
+}
+
+.bottom-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+}
+
+.carousel-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.carousel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scroll-snap-type: x mandatory; /* For snapping items */
+  flex: 1;
+  position: relative;
+  padding: 10px 5px; /* Reduced padding since we don't have navigation buttons */
+  touch-action: pan-x; /* Optimize for horizontal swiping */
+  cursor: grab;
+  width: 100%;
+}
+
+.carousel:active {
+  cursor: grabbing;
+}
+
+.carousel::-webkit-scrollbar {
+  display: none; /* Chrome */
+}
+
+/* Navigation buttons removed */
+.styleItem {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: #f3f4f6;
+  border: 2px solid var(--panel-border);
+  border-radius: 16px;
+  font-size: 1rem;
+  color: var(--text-dark);
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+}
+.styleItem .styleText {
+  position: relative;
+  z-index: 2;
+  background: rgba(255,255,255,0.8);
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.styleItem::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.styleItem.active {
+  background: linear-gradient(135deg, #03c8ff 0%, #ff2fe0 100%);
+  color: #000000;
+  box-shadow: 0 6px 20px rgba(3, 200, 255, 0.6);
+  border: 2px solid #03c8ff;
+  transform: scale(1.08);
+  z-index: 2;
+}
+
+/* Pulse animation for generate button */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.pulse-effect {
+  animation: pulse 0.7s ease-in-out;
+}
+
+
+.generateBtn {
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 2.5rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.generateBtn:hover {
+  background: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Loader and result overlays */
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.7);
+  z-index: 30;
+}
+.overlay .spinner {
+  width: 48px;
+  height: 48px;
+  border: 5px solid #e5e7eb;
+  border-top: 5px solid #4169e1; /* Match the blue from the gradient */
+  border-right: 5px solid #ff69b4; /* Match the pink from the gradient */
+  border-bottom: 5px solid rgba(65, 105, 225, 0.4); /* Lighter blue */
+  border-left: 5px solid rgba(255, 105, 180, 0.4); /* Lighter pink */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+  box-shadow: 0 0 20px rgba(65, 105, 225, 0.2);
+}
+.overlay .loaderText {
+  font-size: 1.2rem;
+  color: var(--text-dark);
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.resultImage {
+  max-width: 90%;
+  max-height: 70%;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 
+              0 0 2px rgba(65, 105, 225, 0.3), 
+              0 0 4px rgba(255, 105, 180, 0.3);
+  margin-bottom: 1.5rem;
+  transition: transform 0.3s ease;
+}
+
+.resultImage:hover {
+  transform: scale(1.02);
+}
+.backBtn {
+  background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.backBtn:hover {
+  background: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
