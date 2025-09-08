@@ -1,6 +1,7 @@
 const path = require('path');
 const express = require('express');
 const fetch = require('node-fetch');
+let uuidv4;
 // Import the fal namespace from the client. According to the fal.ai
 // documentation the client exports an object with a `fal` property,
 // which in turn exposes the `config` and `subscribe` methods.  See
@@ -19,6 +20,70 @@ fal.config({
 const { subscribe } = fal;
 
 const app = express();
+
+// Helper: Runware fallback
+async function generateImageWithRunware(prompt, options = {}) {
+  if (!uuidv4) {
+    // Dynamically import uuid for ESM compatibility
+    const uuidModule = await import('uuid');
+    uuidv4 = uuidModule.v4;
+  }
+  let apiKey = process.env.RUNWARE_API_KEY;
+  if (!apiKey && process.env.RUNWAY_API_KEY) {
+    // fallback for typo in .env
+    apiKey = process.env.RUNWAY_API_KEY;
+    console.warn('Warning: Using RUNWAY_API_KEY from .env, please rename to RUNWARE_API_KEY');
+  }
+  const {
+    model = 'runware:101@1',
+    width = 512,
+    height = 512,
+    seedImage,
+    strength = 0.8,
+    steps = 25,
+    CFGScale = 7.5,
+  } = options;
+  if (!apiKey) throw new Error('Missing Runware API key');
+  const task = {
+    taskType: 'imageInference',
+    taskUUID: uuidv4(),
+    outputType: 'URL',
+    outputFormat: 'JPG',
+    positivePrompt: prompt,
+    model,
+    width,
+    height,
+    steps,
+    CFGScale,
+  };
+  if (seedImage) {
+    task.seedImage = seedImage;
+    task.strength = strength;
+  }
+  const res = await fetch('https://api.runware.ai/v1', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify([task]),
+  });
+  const responseText = await res.text();
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (e) {
+    throw new Error(`Invalid JSON response: ${responseText}`);
+  }
+  if (!res.ok) {
+    throw new Error(`Runware API error: ${res.status} - ${JSON.stringify(data, null, 2)}`);
+  }
+  const url = data?.items?.[0]?.result?.imageURL || data?.data?.[0]?.imageURL;
+  if (!url) {
+    throw new Error(`No image URL found in response: ${JSON.stringify(data)}`);
+  }
+  return url;
+}
 
 // Increase payload limit to allow large base64 images
 app.use(express.json({ limit: '15mb' }));
@@ -158,42 +223,97 @@ Format de sortie:
       finalPrompt = promptLines.join(' ').trim();
     }
 
-
-    // Step 3: call Fal AI.  Use sync_mode: true at the top level of the
-    // subscribe options so that the API returns the completed image
-    // directly without requiring separate polling.  Pass the full data URI
-    // as `image_url`.  When the call resolves, the first generated
-    // image URL can typically be found under the `images` array on the
-    // result itself.  Some versions of the client wrap this array in a
-    // `data` property instead.  Accommodate both cases and fall back to
-    // any `output` field if available.
+    // Step 3: Try Fal AI, fallback to Runware if error or timeout (30s)
     const dataUri = image;
     let resultImage;
-    try {
-      const falResult = await subscribe('fal-ai/flux-pro/kontext', {
-        input: {
-          prompt: finalPrompt || description || 'Une image détaillée et belle',
-          image_url: dataUri,
-        },
-        sync_mode: true,
-        logs: false,
-      });
-      // Extract image URL from different possible response shapes
-      if (falResult?.images && falResult.images.length > 0) {
-        resultImage = falResult.images[0].url;
-      } else if (falResult?.data?.images && falResult.data.images.length > 0) {
-        resultImage = falResult.data.images[0].url;
-      } else if (falResult?.output) {
-        resultImage = falResult.output;
+    let falError = null;
+    let usedFallback = false;
+    const falPromise = (async () => {
+      try {
+        console.log('Attempting to generate image with Fal AI...');
+        
+        // Check for valid API key
+        if (!process.env.FAL_API_KEY) {
+          console.error('FAL_API_KEY is missing in environment variables');
+          throw new Error('Missing Fal AI API key');
+        }
+        
+        // Log the input for debugging
+        console.log('Fal AI Input:', {
+          prompt: (finalPrompt || description || 'Une image détaillée et belle').substring(0, 100) + '...',
+          imageProvided: !!dataUri
+        });
+        
+        const falResult = await subscribe('fal-ai/flux-pro/kontext', {
+          input: {
+            prompt: finalPrompt || description || 'Une image détaillée et belle',
+            image_url: dataUri,
+          },
+          sync_mode: true,
+          logs: true, // Enable logs for debugging
+        });
+        
+        // Debug the response
+        console.log('Fal AI Response received:', 
+                    falResult ? 'Success' : 'Empty response',
+                    falResult?.images ? `with ${falResult.images.length} images` : 'without images');
+                   
+        // Handle different response formats
+        if (falResult?.images && falResult.images.length > 0) {
+          console.log('Using falResult.images[0].url');
+          return falResult.images[0].url;
+        } else if (falResult?.data?.images && falResult.data.images.length > 0) {
+          console.log('Using falResult.data.images[0].url');
+          return falResult.data.images[0].url;
+        } else if (falResult?.output) {
+          console.log('Using falResult.output');
+          return falResult.output;
+        }
+        
+        // Log full response for debugging
+        console.error('No image URL found in Fal AI response:', JSON.stringify(falResult, null, 2));
+        throw new Error('No image returned from Fal AI');
+      } catch (e) {
+        console.error('Fal AI error:', e.message);
+        falError = e;
+        return null;
       }
-    } catch (e) {
-      console.error('Fal AI generation error:', e);
-      return res.status(500).json({ error: 'Fal AI generation failed' });
+    })();
+    // 20s timeout (reduced from 30s for faster fallback)
+    function timeoutPromise(ms) {
+      return new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), ms));
     }
-    if (!resultImage) {
-      return res.status(500).json({ error: 'No image returned from Fal AI' });
+    let falResult = await Promise.race([falPromise, timeoutPromise(40000)]);
+    if (falResult && falResult !== 'TIMEOUT') {
+      console.log('Successfully generated image with Fal AI');
+      resultImage = falResult;
+    } else {
+      // Log the reason for fallback
+      console.error('Fal AI failed:', falResult === 'TIMEOUT' ? 
+        'Request timed out after 20 seconds' : 
+        (falError ? falError.message : 'Unknown error'));
+      
+      // Fallback to Runware
+      usedFallback = true;
+      console.log('Falling back to Runware API...');
+      try {
+        // Use the exact same prompt as for Fal AI
+        const runwarePrompt = finalPrompt || description || 'Une image détaillée et belle';
+        resultImage = await generateImageWithRunware(
+          runwarePrompt,
+          {
+            seedImage: base64,
+            strength: 0.8,
+            width: 768,
+            height: 768,
+          }
+        );
+      } catch (runwareErr) {
+        console.error('Runware fallback error:', runwareErr);
+        return res.status(500).json({ error: 'Both Fal AI and Runware failed' });
+      }
     }
-    res.json({ description, prompt: finalPrompt || description, image: resultImage });
+    res.json({ description, prompt: finalPrompt || description, image: resultImage, fallback: usedFallback });
   } catch (err) {
     console.error('Generate error:', err);
     res.status(500).json({ error: 'Generation failed' });

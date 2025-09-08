@@ -443,6 +443,51 @@ document.addEventListener('DOMContentLoaded', () => {
    * Show the final result overlay with the generated image.
    */
   function showResult(imageUrl) {
+    console.log('Showing result with image URL:', imageUrl);
+    
+    // Clear any existing error messages
+    const existingError = document.querySelector('.image-error');
+    if (existingError) {
+      existingError.remove();
+    }
+    
+    // Set up image load error handling
+    resultImage.onerror = function() {
+      console.error('Failed to load image from URL:', imageUrl);
+      
+      // Create error message
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'image-error';
+      errorMsg.innerHTML = `
+        <p>Impossible de charger l'image.</p>
+        <p>URL: ${imageUrl ? imageUrl.substring(0, 30) + '...' : 'undefined'}</p>
+        <button class="retry-btn">Réessayer</button>
+      `;
+      
+      // Add retry functionality
+      errorMsg.querySelector('.retry-btn').addEventListener('click', function() {
+        // Add timestamp to bust cache
+        resultImage.src = imageUrl + (imageUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+      });
+      
+      // Add error message to container
+      resultContainer.appendChild(errorMsg);
+    };
+    
+    // Set up image load success handler
+    resultImage.onload = function() {
+      console.log('Image loaded successfully!');
+      
+      // Create a notice about which API was used
+      const apiNotice = document.createElement('div');
+      apiNotice.className = 'api-notice';
+      apiNotice.textContent = imageUrl.includes('runware') ? 
+        'Image générée avec API de secours (Runware)' : 
+        'Image générée avec Fal AI';
+      resultContainer.appendChild(apiNotice);
+    };
+    
+    // Set image source and show container
     resultImage.src = imageUrl;
     resultContainer.classList.remove('hidden');
   }

@@ -6,12 +6,45 @@
   <title>Plateforme d'Imagination</title>
   <link rel="stylesheet" href="style.css">
   <script src="script.js"></script>
+  <script>
+    // Fix for 100vh in mobile browsers
+    function setVH() {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    
+    // Set the vh variable on page load
+    window.addEventListener('load', setVH);
+    
+    // Update the vh variable on resize and orientation change
+    window.addEventListener('resize', setVH);
+    window.addEventListener('orientationchange', setVH);
+  </script>
 </head>
 <body>
   <!-- Start screen with hook text -->
   <div id="startScreen" class="centered">
     <h1>Donnez vie à votre imagination</h1>
-    <!-- You can add more details below the header here -->
+    <div class="showcase-container">
+      <div class="showcase-item">
+        <div class="showcase-image sketch">
+          <img src="ChatGPT Image 8 sept. 2025, 12_07_33.png" alt="Croquis robot" class="robot-image" >
+        </div>
+        <div class="transformation-arrow">
+          <div class="arrow-icon">→</div>
+        </div>
+        <div class="showcase-image result">
+          <img src="Generated Image September 04, 2025 - 7_06PM 1.png" alt="Image générée" class="robot-image" >
+        </div>
+      </div>
+      <p class="showcase-description">Dessinez un simple croquis et notre IA le transformera en une œuvre d'art époustouflante en quelques secondes. <span class="highlight-text">Aucune compétence artistique requise!</span></p>
+    </div>
+    <div class="cta-container">
+        <div class="sparkle sparkle1"></div>
+        <div class="sparkle sparkle2"></div>
+        <div class="sparkle sparkle3"></div>
+        <p class="tap-instruction">Tapez pour commencer votre chef-d'œuvre</p>
+      </div>
   </div>
 
   <!-- Main application container; hidden until user clicks start screen -->
