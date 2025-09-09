@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plateforme d'Imagination</title>
   <link rel="stylesheet" href="style.css">
+  <script src="color-picker.js"></script>
   <script src="script.js"></script>
   <script>
     // Fix for 100vh in mobile browsers
@@ -63,8 +64,7 @@
     </div>
 
     <!-- Side panel with tools -->
-    <div id="sidePanel" class="closed">
-      <button id="togglePanel" class="toggleHandle">&#9776;</button>
+  <div id="sidePanel">
       <div class="toolBar">
         <button id="eraserBtn" class="toolButton" title="Gomme">🧽</button>
         <div id="sizeSliderContainer" title="Taille du pinceau">
@@ -75,13 +75,13 @@
           <div id="colorMenu" class="colorMenu hidden"></div>
         </div>
         <button id="undoBtn" class="toolButton" title="Annuler">↶</button>
+        <button id="redoBtn" class="toolButton" title="Rétablir">↷</button>
         
         <!-- Divider for bottom panel buttons -->
         <div class="panel-divider"></div>
         
-        <!-- Important sketches and GS Engine buttons -->
+        <!-- Important sketches button -->
         <button id="importantSketchesBtn" class="toolButton" title="Croquis Importants">📁</button>
-        <button id="gsToggleBtn" class="toolButton" title="Afficher/Masquer le Code">{ }</button>
       </div>
     </div>
 
@@ -124,79 +124,6 @@
       </div>
     </div>
   </div>
-
-  <!-- GS Engine Script -->
-  <script id="gs-engine">
-    // GS Engine - Gmail Style code highlighting and hiding functionality
-    (function() {
-      // Variable to track code visibility state
-      let codeVisible = true;
-      
-      // Function to toggle code visibility
-      function toggleCodeVisibility() {
-        const scripts = document.querySelectorAll('script:not([id="gs-engine"])');
-        const styleElement = document.createElement('style');
-        const gsToggleBtn = document.getElementById('gsToggleBtn');
-        
-        if (codeVisible) {
-          // Hide code
-          styleElement.id = 'gs-style-hider';
-          styleElement.textContent = 'script:not([id="gs-engine"]) { display: none !important; }';
-          document.head.appendChild(styleElement);
-          gsToggleBtn.classList.add('active');
-        } else {
-          // Show code
-          const existingStyle = document.getElementById('gs-style-hider');
-          if (existingStyle) existingStyle.remove();
-          gsToggleBtn.classList.remove('active');
-        }
-        
-        codeVisible = !codeVisible;
-      }
-      
-      // Add event listener to toggle button (after DOM is loaded)
-      document.addEventListener('DOMContentLoaded', () => {
-        const gsToggleBtn = document.getElementById('gsToggleBtn');
-        if (gsToggleBtn) {
-          gsToggleBtn.addEventListener('click', toggleCodeVisibility);
-        }
-      });
-      
-      // Function to highlight code sections
-      function highlightCode(element) {
-        if (!element) return;
-        
-        // Create highlighting overlay
-        const highlight = document.createElement('div');
-        highlight.className = 'gs-highlight';
-        highlight.style.position = 'absolute';
-        highlight.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
-        highlight.style.zIndex = '9999';
-        
-        const rect = element.getBoundingClientRect();
-        highlight.style.top = rect.top + window.scrollY + 'px';
-        highlight.style.left = rect.left + window.scrollX + 'px';
-        highlight.style.width = rect.width + 'px';
-        highlight.style.height = rect.height + 'px';
-        
-        document.body.appendChild(highlight);
-        
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-          if (highlight && highlight.parentNode) {
-            highlight.parentNode.removeChild(highlight);
-          }
-        }, 2000);
-      }
-      
-      // Expose highlightCode function globally
-      window.gsHighlight = function(selector) {
-        const element = document.querySelector(selector);
-        highlightCode(element);
-      };
-    })();
-  </script>
-
 
   
   <!-- Add CSS for the new elements -->
@@ -264,7 +191,7 @@
     }
     
     .upload-btn {
-      background: linear-gradient(135deg, #4169e1 0%, #ff69b4 100%);
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
       color: white;
       padding: 8px 15px;
       border: none;
@@ -277,7 +204,7 @@
     }
     
     .upload-btn:hover {
-      background: linear-gradient(135deg, #3a5fd9 0%, #ff4dab 100%);
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
       box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
     }
     
@@ -310,20 +237,9 @@
       border-radius: 1px;
     }
     
-    /* GS Engine styling */
-    .gs-highlight {
-      pointer-events: none;
-      animation: highlightFade 2s ease-out;
-    }
-    
-    @keyframes highlightFade {
-      0% { opacity: 1; }
-      100% { opacity: 0; }
-    }
-    
     /* Active state for buttons - using gradient to match overall theme */
     .toolButton.active {
-      background: linear-gradient(135deg, #ff69b4 0%, #4169e1 100%); /* Reversed gradient */
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%); /* Reversed gradient */
       color: white;
       box-shadow: 0 4px 10px rgba(255, 105, 180, 0.4);
     }

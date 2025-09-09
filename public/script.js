@@ -13,12 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('drawingCanvas');
   const ctx = canvas.getContext('2d');
   const sidePanel = document.getElementById('sidePanel');
-  const togglePanelBtn = document.getElementById('togglePanel');
+  // const togglePanelBtn = document.getElementById('togglePanel');
   const eraserBtn = document.getElementById('eraserBtn');
   const sizeSlider = document.getElementById('sizeSlider');
   const currentColorDisplay = document.getElementById('currentColor');
   const colorMenu = document.getElementById('colorMenu');
   const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
   const styleCarousel = document.getElementById('styleCarousel');
   const generateBtn = document.getElementById('generateBtn');
   const loader = document.getElementById('loader');
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let brushSize = parseInt(sizeSlider.value, 10);
   let currentColor = '#000000';
   let paths = []; // stack of drawn strokes for undo
+  let redoPaths = []; // stack of undone strokes for redo
   let currentPath = [];
   let drawingChanged = false;
   let predictionIntervalId;
@@ -82,18 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return article;
   }
 
-  // Colour palette (2 rows of 4)
-  const palette = [
-    '#000000', // Black
-    '#007aff', // Blue
-    '#ffd60a', // Yellow
-    '#34c759', // Green
-    '#ff9500', // Orange
-    '#af52de', // Purple
-    '#a2845e', // Brown
-    '#ff3b30', // Red
-  ];
-
   // Style options
   const styles = [
     'Aquarelle',
@@ -124,6 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
       draw(e.touches[0]);
     }, { passive: false });
     window.addEventListener('touchend', stopDrawing);
+    
+    // Initialize button states
+    undoBtn.classList.remove('active');
+    redoBtn.classList.remove('active');
   }
 
   /**
@@ -141,6 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function startDrawing(e) {
     isDrawing = true;
     currentPath = [];
+    // Clear redo history when starting a new stroke
+    // This follows the standard pattern for drawing applications
+    if (redoPaths.length > 0) {
+      redoPaths = [];
+      // Update redo button visual state
+      redoBtn.classList.remove('active');
+    }
     drawingChanged = true;
     draw(e);
   }
@@ -178,6 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
         color: isErasing ? '#ffffff' : currentColor,
         size: brushSize,
       });
+      // Update undo button state when adding a new path
+      undoBtn.classList.add('active');
     }
     currentPath = [];
   }
@@ -214,16 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /**
-   * Toggle the side panel open or closed.
-   */
-  function toggleSidePanel() {
-    if (sidePanel.classList.contains('closed')) {
-      sidePanel.classList.remove('closed');
-    } else {
-      sidePanel.classList.add('closed');
-    }
-  }
+
 
   /**
    * Set the active colour and update the display.
@@ -237,20 +231,40 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Populate the colour menu with palette swatches.
+   * Initialize the advanced color picker
    */
   function initColourMenu() {
-    palette.forEach((col) => {
-      const swatch = document.createElement('div');
-      swatch.className = 'colorOption';
-      swatch.style.background = col;
-      swatch.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setColour(col);
-        colorMenu.classList.add('hidden');
-      });
-      colorMenu.appendChild(swatch);
+    // Clear any existing content
+    colorMenu.innerHTML = '';
+    
+    // Initialize the advanced color picker
+    const advancedColorPicker = new ColorPicker({
+      container: colorMenu,
+      initialColor: currentColor,
+      onChange: (color) => {
+        setColour(color);
+      }
     });
+    
+    // Store the color picker instance for later use
+    window.advancedColorPicker = advancedColorPicker;
+    
+    // Set up the current color display click handler
+    currentColorDisplay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      advancedColorPicker.toggle();
+    });
+    
+    // Close the color picker when clicking outside
+    document.addEventListener('click', (e) => {
+      if (advancedColorPicker.isVisible() && 
+          !colorMenu.contains(e.target) && 
+          e.target !== currentColorDisplay) {
+        advancedColorPicker.hide();
+      }
+    });
+    
+    // Set initial color display
     currentColorDisplay.style.background = currentColor;
   }
 
@@ -509,8 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startPredictionLoop();
   });
 
-  // Toggle the side panel open/closed
-  togglePanelBtn.addEventListener('click', toggleSidePanel);
+
 
   // Eraser button toggles erasing mode
   eraserBtn.addEventListener('click', () => {
@@ -540,12 +553,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Undo button pops the last path and redraws
+  // Undo button pops the last path, saves it to redoPaths, and redraws
   undoBtn.addEventListener('click', () => {
     if (paths.length > 0) {
-      paths.pop();
+      const removedPath = paths.pop();
+      redoPaths.push(removedPath);
       redraw();
+      // Update the redo button's visual state
+      redoBtn.classList.toggle('active', redoPaths.length > 0);
     }
+    // Update the undo button's visual state
+    undoBtn.classList.toggle('active', paths.length > 0);
+  });
+  
+  // Redo button restores the last undone path and redraws
+  redoBtn.addEventListener('click', () => {
+    if (redoPaths.length > 0) {
+      const pathToRestore = redoPaths.pop();
+      paths.push(pathToRestore);
+      redraw();
+      // Update the redo button's visual state
+      redoBtn.classList.toggle('active', redoPaths.length > 0);
+    } else {
+      console.log('Nothing to redo');
+    }
+    // Update the undo button's visual state
+    undoBtn.classList.toggle('active', paths.length > 0);
   });
 
   // Yes button records positive response and hides prompt
