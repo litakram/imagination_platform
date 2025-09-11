@@ -166,30 +166,33 @@ app.post('/api/predict', async (req, res) => {
 app.post('/api/generate', async (req, res) => {
   try {
     const { image, style, question, answer, personalPrompt } = req.body;
-    if (!image) {
-      return res.status(400).json({ error: 'No image provided' });
+    // Check if we have at least an image or a personalPrompt
+    if (!image && !personalPrompt) {
+      return res.status(400).json({ error: 'No image or prompt provided' });
     }
-    const base64 = image.replace(/^data:image\/\w+;base64,/, '');
+    
+    // If there's an image, process it; otherwise we'll generate from text only
+    const base64 = image ? image.replace(/^data:image\/\w+;base64,/, '') : '';
     const apiKey = process.env.GEMINI_API_KEY;
     const geminiUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent' +
       '?key=' + apiKey;
 
     // Single step: describe and optimize prompt
-    const styleFragment = style ? ` ${style}` : '';
     const q = question || '';
     const a = answer || '';
     const userPromptFragment = personalPrompt ? `L'utilisateur a fourni cette instruction spécifique à intégrer: "${personalPrompt}". ` : '';
     const combinedPrompt =
-      `Vous êtes un expert en interprétation visuelle et en création de prompts pour l'IA artistique. Analysez l'image de croquis ci-jointe. Retournez UNIQUEMENT un paragraphe entre <<<BEGIN_PROMPT>>> et <<<END_PROMPT>>>. Pas de préface, pas d'étiquettes, pas de listes, pas de clôtures de code, pas de guillemets, pas d'espaces réservés. Maximum 1000 caractères. Ne mentionnez pas "croquis", "utilisateur" ou "prompt". Utilisez un langage clair, descriptif et de qualité professionnelle pour un modèle de diffusion image-à-image. Répondez entièrement en français.
-Tâche:
-1) Analysez le croquis ci-joint pour déduire le(s) sujet(s) principal(aux), les positions, les proportions, la perspective et l'intention; déduisez des couleurs réalistes appropriées, des matériaux, des textures, un éclairage et un arrière-plan cohérent pour que la scène soit professionnellement immersive et reproductible.
-2) Fusionnez cette analyse avec ` + (q ? `La dernière question posée à l'utilisateur était "${q}" et la réponse était "${a}". ` : '') + userPromptFragment +
-      ` pour produire UN paragraphe final, photoréaliste, en 3D, de haute qualité qui préserve la structure dessinée et les relations, enrichit les détails (matériaux, lumière/ombres, ambiance, environnement) et reste fidèle à l'intention originale. Le style principal de l'image-prompt est ${styleFragment}. Assurez-vous que votre réponse est en français avec une grammaire et des articles appropriés.
+      `Vous êtes un expert en interprétation visuelle et en création de descriptions immersives pour l'IA artistique. Analysez attentivement l’image fournie et déduisez les sujets principaux, leurs positions, proportions, perspective et intention générale. Imaginez des couleurs réalistes, des matériaux, des textures, un éclairage cohérent et un arrière-plan crédible afin de transformer la scène en une représentation professionnelle et immersive. Ne mentionnez pas l’existence de l’image ou du croquis, ni d’instructions techniques. Retournez UNIQUEMENT un paragraphe en français entre <<<BEGIN_PROMPT>>> et <<<END_PROMPT>>>. Maximum 1000 caractères. Le texte doit être descriptif, fluide et exploitable tel quel par un modèle de diffusion image-à-image ou text-à-image.
 
-Format de sortie:
+Tâche :
+1) Intégrez l’analyse visuelle pour enrichir les détails (matériaux, lumière, ambiance, environnement) tout en respectant la structure et les relations de la scène.
+2) Ajoutez la dimension d’intention : la dernière question posée à l’utilisateur était "${q}" et la réponse était "${a}".
+3) Fusionnez cela avec ${userPromptFragment}, qui précise le style ou l’ambiance souhaitée.
+
+Format attendu :
 <<<BEGIN_PROMPT>>>
-{paragraphe final uniquement en français}
+{paragraphe final en français}
 <<<END_PROMPT>>>`;
     const body = {
       contents: [
@@ -217,6 +220,9 @@ Format de sortie:
     let finalPrompt = '';
     if (geminiJson && Array.isArray(geminiJson.candidates) && geminiJson.candidates[0]?.content?.parts?.length) {
       const combinedText = geminiJson.candidates[0].content.parts.map((p) => p.text).join('\n').trim();
+      // Log the complete Gemini response for debugging
+      console.log('Gemini response (refined prompt):', combinedText);
+      
       // Split description and prompt by line
       const [desc, ...promptLines] = combinedText.split('\n');
       description = desc.trim();
@@ -238,20 +244,42 @@ Format de sortie:
           throw new Error('Missing Fal AI API key');
         }
         
+        // Prepare prompt
+        const promptToUse = finalPrompt || description || personalPrompt || 'Une image détaillée et belle';
+        
         // Log the input for debugging
         console.log('Fal AI Input:', {
-          prompt: (finalPrompt || description || 'Une image détaillée et belle').substring(0, 100) + '...',
+          prompt: promptToUse.substring(0, 100) + '...',
           imageProvided: !!dataUri
         });
         
-        const falResult = await subscribe('fal-ai/flux-pro/kontext', {
-          input: {
-            prompt: finalPrompt || description || 'Une image détaillée et belle',
-            image_url: dataUri,
-          },
-          sync_mode: true,
-          logs: true, // Enable logs for debugging
-        });
+        let falResult;
+        
+        // If we have an image, use image-to-image model (kontext)
+        // Otherwise use text-to-image model (stable-diffusion)
+        if (dataUri) {
+          falResult = await subscribe('fal-ai/flux-pro/kontext', {
+            input: {
+              prompt: promptToUse,
+              image_url: dataUri,
+            },
+            sync_mode: true,
+            logs: true, // Enable logs for debugging
+          });
+        } else {
+          // Text-to-image generation when no sketch is provided
+          falResult = await subscribe('fal-ai/stable-diffusion-xl-lightning', {
+            input: {
+              prompt: promptToUse,
+              negative_prompt: "deformed, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, floating limbs, disconnected limbs, malformed hands, blurry, watermark, watermarked, oversaturated, censored, distorted, deeply detailed, poorly drawn, low quality, draft, out of frame, cut off, poorly framed",
+              width: 768,
+              height: 768,
+              num_images: 1
+            },
+            sync_mode: true,
+            logs: true,
+          });
+        }
         
         // Debug the response
         console.log('Fal AI Response received:', 
@@ -279,7 +307,6 @@ Format de sortie:
         return null;
       }
     })();
-    // 20s timeout (reduced from 30s for faster fallback)
     function timeoutPromise(ms) {
       return new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), ms));
     }
@@ -290,7 +317,7 @@ Format de sortie:
     } else {
       // Log the reason for fallback
       console.error('Fal AI failed:', falResult === 'TIMEOUT' ? 
-        'Request timed out after 20 seconds' : 
+        'Request timed out after 40 seconds' : 
         (falError ? falError.message : 'Unknown error'));
       
       // Fallback to Runware
@@ -298,16 +325,21 @@ Format de sortie:
       console.log('Falling back to Runware API...');
       try {
         // Use the exact same prompt as for Fal AI
-        const runwarePrompt = finalPrompt || description || 'Une image détaillée et belle';
-        resultImage = await generateImageWithRunware(
-          runwarePrompt,
-          {
-            seedImage: base64,
-            strength: 0.8,
-            width: 768,
-            height: 768,
-          }
-        );
+        const runwarePrompt = finalPrompt || description || personalPrompt || 'Une image détaillée et belle';
+        
+        // Options for Runware API
+        const options = {
+          width: 768,
+          height: 768,
+        };
+        
+        // If we have a base64 image, include it as seedImage
+        if (base64) {
+          options.seedImage = base64;
+          options.strength = 0.8;
+        }
+        
+        resultImage = await generateImageWithRunware(runwarePrompt, options);
       } catch (runwareErr) {
         console.error('Runware fallback error:', runwareErr);
         return res.status(500).json({ error: 'Both Fal AI and Runware failed' });

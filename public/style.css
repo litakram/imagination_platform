@@ -414,6 +414,26 @@ html, body {
   border-radius: 50%;
   border: 1px solid white;
 }
+
+/* Divider in side panel */
+.panel-divider {
+  width: 80%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.5);
+  margin: 0.5rem 0;
+}
+
+/* Style spécifique pour le bouton d'effacement du canvas */
+#clearCanvasBtn {
+  background: linear-gradient(135deg, #ff5555 0%, #cc2222 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(255, 85, 85, 0.4);
+}
+
+#clearCanvasBtn:hover {
+  background: linear-gradient(135deg, #cc2222 0%, #ff5555 100%);
+  transform: scale(1.05);
+}
 .toolButton:hover {
   background: linear-gradient(135deg, #381978 0%, #7460C4 100%);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
@@ -720,36 +740,49 @@ html, body {
   width: 80px;
   height: 80px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   background: #f3f4f6;
   border: 2px solid var(--panel-border);
-  border-radius: 16px;
+  border-radius: 50%;  /* Make fully rounded */
   font-size: 1rem;
   color: var(--text-dark);
   text-align: center;
   cursor: pointer;
   user-select: none;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
   scroll-snap-align: center;
+  margin-bottom: 12px; /* Reduced space for labels below */
 }
-.styleItem .styleText {
+
+.style-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   position: relative;
-  z-index: 2;
-  background: rgba(255,255,255,0.8);
-  border-radius: 8px;
-  padding: 4px 8px;
-  margin-bottom: 10px;
+  margin: 0 4px;
+}
+
+.style-label {
+  position: relative; /* Changed from absolute to relative */
+  font-size: 0.8rem;
   font-weight: 600;
-  font-size: 0.9rem;
-  max-width: 90%;
+  color: #333;
+  text-align: center;
   white-space: nowrap;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 1px rgba(255,255,255,0.8);
+  margin-top: -2px; /* Added negative margin to pull it up closer to the circle */
+}
+
+.styleItem .styleText {
+  display: none; /* Hide the inner text since we'll use labels below */
 }
 .styleItem::before {
   content: "";
@@ -767,8 +800,15 @@ html, body {
   color: #ffffff;
   box-shadow: 0 6px 20px rgba(56, 25, 120, 0.6);
   border: 2px solid #7460C4;
-  transform: scale(1.08);
+  transform: scale(1.15);
   z-index: 2;
+}
+
+/* Style for active label */
+.style-wrapper.active .style-label {
+  color: #381978;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.9);
 }
 
 /* Pulse animation for generate button */

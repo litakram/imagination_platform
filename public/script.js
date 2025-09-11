@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return article;
   }
 
-  // Style options
+  // Style options with personalized prompts
   const styles = [
     'Aquarelle',
     'Illustration',
@@ -93,6 +93,16 @@ document.addEventListener('DOMContentLoaded', () => {
     'Dessin Animé 3D',
     'Peinture à l\'huile',
   ];
+  
+  // Personalized prompts for each style
+  const stylePrompts = {
+    'Aquarelle': 'Transformer ce croquis en une peinture aquarelle délicate, avec des lavis de couleur doux, des dégradés subtils et un effet de pigments naturels sur papier texturé. Mettre en valeur la transparence, les fondus et des coups de pinceau fluides.',
+    'Illustration': 'Améliorer ce croquis en une illustration nette et détaillée, avec des lignes précises, des couleurs vives et des ombrages équilibrés. Style professionnel et raffiné, adapté à l’éditorial ou au concept art.',
+    'Pop Art': 'Convertir ce croquis en une œuvre Pop Art audacieuse, avec des couleurs saturées, des contours épais, des motifs tramés et un contraste fort. Donner un style iconique et ludique, inspiré de la bande dessinée.',
+    'Croquis': 'Raffiner ce croquis tout en conservant l’aspect brut et expressif du trait. Utiliser des textures de crayon ou de fusain, avec un style carnet de dessin qui met en valeur le geste et la forme.',
+    'Dessin Animé 3D': 'Transformer ce croquis en un rendu cartoon 3D coloré, avec des ombrages doux, une lumière réaliste et des personnages stylisés. Mettre l’accent sur l’expression, les proportions ludiques et un rendu proche d’un film d’animation.',
+    'Peinture à l\'huile': 'Convertir ce croquis en une peinture à l’huile riche et texturée, avec des coups de pinceau visibles, des couleurs profondes et des effets de lumière réalistes. Donner une esthétique classique et artistique.'
+  };
 
   /**
    * Initialise the drawing canvas to fill the window and set up event handlers.
@@ -108,7 +118,10 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('mouseout', stopDrawing);
 
     // Touch events for mobile
-    canvas.addEventListener('touchstart', (e) => startDrawing(e.touches[0]));
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // Empêche le défilement sur les appareils mobiles
+      startDrawing(e.touches[0]);
+    }, { passive: false });
     canvas.addEventListener('touchmove', (e) => {
       e.preventDefault();
       draw(e.touches[0]);
@@ -130,6 +143,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
+   * Dessine un point circulaire à la position spécifiée
+   * @param {number} x - Coordonnée X du point
+   * @param {number} y - Coordonnée Y du point
+   * @param {string} color - Couleur du point
+   * @param {number} size - Taille du point (diamètre)
+   */
+  function drawDot(x, y, color, size) {
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  /**
    * Begin a new stroke on mousedown/touchstart.
    */
   function startDrawing(e) {
@@ -143,6 +170,11 @@ document.addEventListener('DOMContentLoaded', () => {
       redoBtn.classList.remove('active');
     }
     drawingChanged = true;
+    
+    // Dessiner un point immédiatement pour un retour visuel instantané
+    const { x, y } = getCanvasPos(e);
+    drawDot(x, y, isErasing ? '#ffffff' : currentColor, brushSize);
+    
     draw(e);
   }
 
@@ -206,14 +238,22 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     // Redraw each stored path
     for (const path of paths) {
-      ctx.beginPath();
-      ctx.strokeStyle = path.color;
-      ctx.lineWidth = path.size;
-      path.points.forEach((pt, index) => {
-        if (index === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      });
-      ctx.stroke();
+      // Vérifier s'il s'agit d'un point unique (simple clic)
+      if (path.points.length === 1) {
+        // Dessiner un point circulaire
+        const point = path.points[0];
+        drawDot(point.x, point.y, path.color, path.size);
+      } else {
+        // Dessiner une ligne pour les traits normaux
+        ctx.beginPath();
+        ctx.strokeStyle = path.color;
+        ctx.lineWidth = path.size;
+        path.points.forEach((pt, index) => {
+          if (index === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+      }
     }
   }
 
@@ -342,33 +382,110 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: false });
     
     styles.forEach((style) => {
+      // Create a wrapper div for the style item and its label
+      const wrapper = document.createElement('div');
+      wrapper.className = 'style-wrapper';
+      
+      // Create the style item (circular button)
       const item = document.createElement('div');
       item.className = 'styleItem';
       // Set background image via CSS variable
       item.style.setProperty('--bg-image', styleImages[style] || 'none');
-      item.addEventListener('click', () => {
-        // Deactivate previous
+      
+      // Create the label that will appear below the style item
+      const label = document.createElement('div');
+      label.className = 'style-label';
+      label.textContent = style;
+      
+      // Add click event to the wrapper
+      wrapper.addEventListener('click', () => {
+        const personalPromptInput = document.getElementById('personalPrompt');
+        // Store current selected style before updating
+        const previousStyle = selectedStyle;
+        
+        // Deactivate previous style visually
+        document.querySelectorAll('.style-wrapper').forEach((el) => el.classList.remove('active'));
         document.querySelectorAll('.styleItem').forEach((el) => el.classList.remove('active'));
+        
+        wrapper.classList.add('active');
         item.classList.add('active');
+        
+        // If clicking on the same style that's already selected, toggle it off
+        if (previousStyle === style && personalPromptInput) {
+          // Remove the style prompt from input field if it exists
+          if (previousStyle && stylePrompts[previousStyle] && 
+              personalPromptInput.value.includes(stylePrompts[previousStyle])) {
+            personalPromptInput.value = personalPromptInput.value.replace(stylePrompts[previousStyle], '').trim();
+          }
+          wrapper.classList.remove('active');
+          item.classList.remove('active');
+          selectedStyle = '';
+          return;
+        }
+        
+        // Set the new selected style
         selectedStyle = style;
+        
+        // Update the personal prompt, preserving user input and replacing only the previous style prompt
+        if (personalPromptInput) {
+          const currentValue = personalPromptInput.value;
+          const newStylePrompt = stylePrompts[style] || `En style ${style}`;
+          
+          // If there was a previous style, replace its prompt text only
+          if (previousStyle && stylePrompts[previousStyle] && 
+              currentValue.includes(stylePrompts[previousStyle])) {
+            personalPromptInput.value = currentValue.replace(
+              stylePrompts[previousStyle], 
+              newStylePrompt
+            ).trim();
+          } 
+          // If the field is empty, just add the style prompt
+          else if (!currentValue) {
+            personalPromptInput.value = newStylePrompt;
+          } 
+          // Otherwise, preserve user input and add the style prompt at the beginning
+          else {
+            personalPromptInput.value = newStylePrompt + ' ' + currentValue;
+          }
+        }
       });
-      // Add text span for style name
+      
+      // Add text span for style name (hidden but kept for compatibility)
       const textSpan = document.createElement('span');
       textSpan.className = 'styleText';
       textSpan.textContent = style;
       item.appendChild(textSpan);
+      
       // Set background image using ::before via inline style
       item.style.setProperty('background-image', styleImages[style] || 'none');
-      carouselContainer.appendChild(item);
+      
+      // Assemble the wrapper with the item and label
+      wrapper.appendChild(item);
+      wrapper.appendChild(label);
+      carouselContainer.appendChild(wrapper);
     });
     
     // Assemble the carousel components (without navigation buttons)
     carouselWrapper.appendChild(carouselContainer);
     styleCarousel.appendChild(carouselWrapper);
     
+    // If there's already a selected style, highlight it
+    if (selectedStyle) {
+      const styleWrappers = document.querySelectorAll('.style-wrapper');
+      styleWrappers.forEach(wrapper => {
+        const styleItem = wrapper.querySelector('.styleItem');
+        const label = wrapper.querySelector('.style-label');
+        
+        if (label && label.textContent === selectedStyle) {
+          wrapper.classList.add('active');
+          styleItem.classList.add('active');
+        }
+      });
+    }
+    
     // Add animation effect to generate button when a style is selected
-    document.querySelectorAll('.styleItem').forEach(item => {
-      item.addEventListener('click', () => {
+    document.querySelectorAll('.style-wrapper').forEach(wrapper => {
+      wrapper.addEventListener('click', () => {
         const generateBtn = document.getElementById('generateBtn');
         generateBtn.classList.add('pulse-effect');
         setTimeout(() => {
@@ -556,13 +673,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // Undo button pops the last path, saves it to redoPaths, and redraws
   undoBtn.addEventListener('click', () => {
     if (paths.length > 0) {
+      // Standard undo for individual paths
       const removedPath = paths.pop();
       redoPaths.push(removedPath);
       redraw();
-      // Update the redo button's visual state
-      redoBtn.classList.toggle('active', redoPaths.length > 0);
+    } else {
+      // Check if the last redo operation is a full canvas restore (after clear)
+      const lastRedo = redoPaths[redoPaths.length - 1];
+      if (lastRedo && lastRedo.isFullCanvas && lastRedo.paths) {
+        // Restore the full canvas
+        paths = [...lastRedo.paths];
+        redoPaths.pop();
+        redraw();
+      }
     }
-    // Update the undo button's visual state
+    
+    // Update the buttons' visual state
+    redoBtn.classList.toggle('active', redoPaths.length > 0);
     undoBtn.classList.toggle('active', paths.length > 0);
   });
   
@@ -570,7 +697,14 @@ document.addEventListener('DOMContentLoaded', () => {
   redoBtn.addEventListener('click', () => {
     if (redoPaths.length > 0) {
       const pathToRestore = redoPaths.pop();
-      paths.push(pathToRestore);
+      
+      // Check if it's a full canvas restore (after clear)
+      if (pathToRestore.isFullCanvas && pathToRestore.paths) {
+        paths = [...pathToRestore.paths];
+      } else {
+        paths.push(pathToRestore);
+      }
+      
       redraw();
       // Update the redo button's visual state
       redoBtn.classList.toggle('active', redoPaths.length > 0);
@@ -579,6 +713,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Update the undo button's visual state
     undoBtn.classList.toggle('active', paths.length > 0);
+  });
+  
+  // Clear Canvas button clears all paths and redraws an empty canvas
+  const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+  clearCanvasBtn.addEventListener('click', () => {
+    // Save current paths for undo functionality
+    if (paths.length > 0) {
+      // Save all current paths as one undo step
+      redoPaths.push({
+        isFullCanvas: true,
+        paths: [...paths]
+      });
+      // Clear all paths
+      paths = [];
+      // Redraw empty canvas
+      redraw();
+      // Update button states
+      undoBtn.classList.remove('active');
+      redoBtn.classList.add('active');
+      drawingChanged = true;
+    }
   });
 
   // Yes button records positive response and hides prompt
@@ -595,10 +750,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Generate button sends the final drawing to the server and displays the result
   generateBtn.addEventListener('click', async () => {
-    if (paths.length === 0) {
-      alert('Veuillez dessiner quelque chose d\'abord !');
+    const personalPromptInput = document.getElementById('personalPrompt');
+    const personalPrompt = personalPromptInput ? personalPromptInput.value.trim() : '';
+    
+    // Allow generation with prompt only (no drawing)
+    if (paths.length === 0 && !personalPrompt) {
+      alert('Veuillez dessiner quelque chose ou saisir un prompt textuel !');
       return;
     }
+    
     // Cancel any pending prompt
     hidePrompt();
     showLoader();
