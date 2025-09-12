@@ -582,6 +582,9 @@ document.addEventListener('DOMContentLoaded', () => {
       existingError.remove();
     }
     
+    // Cache le conteneur de résultat jusqu'à ce que l'image soit chargée
+    resultContainer.classList.add('hidden');
+    
     // Set up image load error handling
     resultImage.onerror = function() {
       console.error('Failed to load image from URL:', imageUrl);
@@ -603,6 +606,12 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Add error message to container
       resultContainer.appendChild(errorMsg);
+      
+      // Masquer le loader en cas d'erreur
+      hideLoader();
+      
+      // Afficher le conteneur même en cas d'erreur pour montrer le message
+      resultContainer.classList.remove('hidden');
     };
     
     // Set up image load success handler
@@ -612,15 +621,27 @@ document.addEventListener('DOMContentLoaded', () => {
       // Create a notice about which API was used
       const apiNotice = document.createElement('div');
       apiNotice.className = 'api-notice';
-      apiNotice.textContent = imageUrl.includes('runware') ? 
-        'Image générée avec API de secours (Runware)' : 
-        'Image générée avec Fal AI';
+      if (imageUrl.includes('bfl.ai')) {
+        apiNotice.textContent = 'Image générée avec API de secours (BFL AI)';
+      } else if (imageUrl.includes('runware')) {
+        apiNotice.textContent = 'Image générée avec API de secours (Runware)';
+      } else {
+        apiNotice.textContent = 'Image générée avec Fal AI';
+      }
       resultContainer.appendChild(apiNotice);
+      
+      // S'assurer que le bouton de retour est prêt pour l'animation
+      backBtn.style.display = 'block';
+      
+      // Masquer le loader uniquement quand l'image est chargée
+      hideLoader();
+      
+      // Afficher le conteneur une fois que l'image est complètement chargée
+      resultContainer.classList.remove('hidden');
     };
     
-    // Set image source and show container
+    // Set image source (le chargement va commencer)
     resultImage.src = imageUrl;
-    resultContainer.classList.remove('hidden');
   }
 
   /**
@@ -761,6 +782,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Cancel any pending prompt
     hidePrompt();
+    
+    // Cacher le bouton retour s'il était visible d'une génération précédente
+    backBtn.style.display = 'none';
+    
     showLoader();
     try {
       const dataUrl = canvas.toDataURL('image/png');
@@ -781,15 +806,17 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      hideLoader();
+      
       if (res.ok && json.image) {
+        // Ne pas masquer le loader, il sera masqué quand l'image sera chargée
         showResult(json.image);
       } else {
+        hideLoader(); // Masquer le loader seulement en cas d'erreur
         console.error('Generation error:', json.error);
         alert('Une erreur est survenue lors de la génération de l\'image.');
       }
     } catch (err) {
-      hideLoader();
+      hideLoader(); // Masquer le loader en cas d'erreur
       console.error('Generation failed', err);
       alert('Une erreur est survenue lors de la génération de l\'image.');
     }

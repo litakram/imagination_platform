@@ -1,6 +1,7 @@
 const path = require('path');
 const express = require('express');
 const fetch = require('node-fetch');
+const axios = require('axios');
 let uuidv4;
 // Import the fal namespace from the client. According to the fal.ai
 // documentation the client exports an object with a `fal` property,
@@ -21,68 +22,169 @@ const { subscribe } = fal;
 
 const app = express();
 
-// Helper: Runware fallback
-async function generateImageWithRunware(prompt, options = {}) {
-  if (!uuidv4) {
-    // Dynamically import uuid for ESM compatibility
-    const uuidModule = await import('uuid');
-    uuidv4 = uuidModule.v4;
+// Helper: BFL AI fallback
+async function generateImageWithBFL(prompt, options = {}) {
+  const axios = require("axios");
+  const apiKey = process.env.BFL_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('Missing BFL API key');
   }
-  let apiKey = process.env.RUNWARE_API_KEY;
-  if (!apiKey && process.env.RUNWAY_API_KEY) {
-    // fallback for typo in .env
-    apiKey = process.env.RUNWAY_API_KEY;
-    console.warn('Warning: Using RUNWAY_API_KEY from .env, please rename to RUNWARE_API_KEY');
-  }
+  
   const {
-    model = 'runware:101@1',
-    width = 512,
-    height = 512,
+    width = 768,
+    height = 768,
     seedImage,
     strength = 0.8,
-    steps = 25,
-    CFGScale = 7.5,
   } = options;
-  if (!apiKey) throw new Error('Missing Runware API key');
-  const task = {
-    taskType: 'imageInference',
-    taskUUID: uuidv4(),
-    outputType: 'URL',
-    outputFormat: 'JPG',
-    positivePrompt: prompt,
-    model,
-    width,
-    height,
-    steps,
-    CFGScale,
-  };
-  if (seedImage) {
-    task.seedImage = seedImage;
-    task.strength = strength;
-  }
-  const res = await fetch('https://api.runware.ai/v1', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify([task]),
-  });
-  const responseText = await res.text();
-  let data;
+  
   try {
-    data = JSON.parse(responseText);
-  } catch (e) {
-    throw new Error(`Invalid JSON response: ${responseText}`);
+    console.log('Generating image with BFL AI...');
+    
+    // Préparer la requête pour l'API BFL
+    let requestData = {
+      prompt: prompt,
+    };
+    
+    console.log('BFL prompt length:', prompt ? prompt.length : 0, 'chars');
+    
+    // Si une image source est fournie, l'ajouter à la requête
+    if (seedImage) {
+      // Pour BFL API, nous devons extraire uniquement la partie base64 (sans le préfixe dataURI)
+      if (seedImage.startsWith('data:')) {
+        // Si c'est un dataURI, extraire uniquement la partie base64
+        requestData.input_image = seedImage.replace(/^data:image\/\w+;base64,/, '');
+      } else {
+        // Si c'est déjà du base64 pur, l'utiliser tel quel
+        requestData.input_image = seedImage;
+      }
+      console.log('Using input image with BFL AI');
+      // Afficher le début de l'image et sa longueur
+      console.log('Image length:', requestData.input_image.length, 
+                 'Preview:', requestData.input_image.substring(0, 20) + '...');
+    }
+    
+    // Effectuer la requête initiale pour démarrer la génération
+    const response = await axios.post(
+      "https://api.bfl.ai/v1/flux-kontext-pro",
+      requestData,
+      {
+        headers: {
+          accept: "application/json",
+          "x-key": apiKey,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    
+    console.log("BFL initial response received, polling for results...");
+    
+    // Extraire l'URL de polling pour suivre l'avancement
+    const pollingUrl = response.data.polling_url;
+    const requestId = response.data.id;
+    
+    if (!pollingUrl) {
+      throw new Error('No polling URL returned from BFL API');
+    }
+    
+    // Attendre que le résultat soit prêt (avec un timeout de 10 secondes)
+    let resultUrl = null;
+    let attempts = 0;
+    const maxAttempts = 5; // 5 tentatives avec 2 secondes d'attente = 10 secondes max
+    
+    while (attempts < maxAttempts) {
+      // Attendre 2 secondes entre chaque tentative
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+      
+      // Vérifier l'état de la génération
+      const statusResponse = await axios.get(pollingUrl, {
+        headers: {
+          accept: "application/json",
+          "x-key": apiKey
+        }
+      });
+      
+      const status = statusResponse.data.status;
+      
+      // Vérifier les différents états possibles
+      console.log(`BFL status: ${status}, attempt ${attempts}/${maxAttempts}`);
+      
+      // Si la génération est terminée avec succès (COMPLETED ou Ready)
+      if (status === "COMPLETED" || status === "Ready") {
+        // Inspecter la réponse complète pour trouver l'URL de l'image
+        console.log("BFL full response:", JSON.stringify(statusResponse.data, null, 2));
+        
+        // Vérifier si l'URL est dans le champ "sample" du résultat (format BFL observé)
+        if (statusResponse.data.result && statusResponse.data.result.sample) {
+          resultUrl = statusResponse.data.result.sample;
+          console.log(`BFL image found at result.sample: ${resultUrl}`);
+          break;
+        }
+        // Essayer d'autres chemins possibles
+        else if (statusResponse.data.output && statusResponse.data.output.image) {
+          resultUrl = statusResponse.data.output.image;
+          console.log(`BFL image found at output.image: ${resultUrl}`);
+          break;
+        } 
+        else if (statusResponse.data.image) {
+          resultUrl = statusResponse.data.image;
+          console.log(`BFL image found at root.image: ${resultUrl}`);
+          break;
+        }
+        else if (statusResponse.data.output) {
+          resultUrl = statusResponse.data.output;
+          console.log(`BFL using output as image URL: ${resultUrl}`);
+          break;
+        }
+        
+        // Si le statut est "Ready", considérons que l'image est prête à la première tentative
+        if (status === "Ready") {
+          // D'après la capture d'écran, l'image est déjà prête dès le premier "Ready"
+          // mais nous ne la trouvons pas dans la réponse - demandons une nouvelle fois
+          console.log("Status is Ready but no image URL found yet. Continuing...");
+        }
+      }
+      // Si la génération a échoué
+      else if (status === "FAILED") {
+        throw new Error(`BFL image generation failed: ${statusResponse.data.error || "Unknown error"}`);
+      }
+    }
+    
+    if (!resultUrl) {
+      console.error(`BFL image generation timed out after ${maxAttempts} attempts (${maxAttempts * 2} seconds)`);
+      throw new Error(`BFL image generation timed out after ${maxAttempts} attempts (${maxAttempts * 2} seconds)`);
+    }
+    
+    // Vérifier si l'URL de l'image semble valide
+    if (!resultUrl.startsWith('http')) {
+      console.warn(`BFL returned potentially invalid image URL: ${resultUrl}. Proceeding anyway.`);
+    }
+    
+    console.log(`BFL final image URL: ${resultUrl}`);
+    return resultUrl;
+  } catch (error) {
+    console.error("BFL API error:", error.response?.data || error.message);
+    
+    // Fournir plus de détails sur l'erreur
+    let errorMessage = error.message;
+    if (error.response && error.response.data) {
+      try {
+        const errorData = error.response.data;
+        if (typeof errorData === 'string') {
+          errorMessage += ` - ${errorData}`;
+        } else if (errorData.error) {
+          errorMessage += ` - ${errorData.error}`;
+        } else {
+          errorMessage += ` - ${JSON.stringify(errorData)}`;
+        }
+      } catch (e) {
+        console.error('Erreur lors du traitement des détails de l\'erreur:', e);
+      }
+    }
+    
+    throw new Error(`BFL API error: ${errorMessage}`);
   }
-  if (!res.ok) {
-    throw new Error(`Runware API error: ${res.status} - ${JSON.stringify(data, null, 2)}`);
-  }
-  const url = data?.items?.[0]?.result?.imageURL || data?.data?.[0]?.imageURL;
-  if (!url) {
-    throw new Error(`No image URL found in response: ${JSON.stringify(data)}`);
-  }
-  return url;
 }
 
 // Increase payload limit to allow large base64 images
@@ -229,7 +331,7 @@ Format attendu :
       finalPrompt = promptLines.join(' ').trim();
     }
 
-    // Step 3: Try Fal AI, fallback to Runware if error or timeout (30s)
+    // Step 3: Try Fal AI, fallback to BFL AI if error or timeout (40s)
     const dataUri = image;
     let resultImage;
     let falError = null;
@@ -320,32 +422,39 @@ Format attendu :
         'Request timed out after 40 seconds' : 
         (falError ? falError.message : 'Unknown error'));
       
-      // Fallback to Runware
+      // Fallback to BFL AI
       usedFallback = true;
-      console.log('Falling back to Runware API...');
+      console.log('Falling back to BFL AI API...');
       try {
         // Use the exact same prompt as for Fal AI
-        const runwarePrompt = finalPrompt || description || personalPrompt || 'Une image détaillée et belle';
+        const bflPrompt = finalPrompt || description || personalPrompt || 'Une image détaillée et belle';
         
-        // Options for Runware API
+        // Options for BFL AI API
         const options = {
           width: 768,
           height: 768,
         };
         
-        // If we have a base64 image, include it as seedImage
-        if (base64) {
-          options.seedImage = base64;
+        // Si nous avons une image, l'inclure comme seedImage
+        if (dataUri) {
+          // Pour BFL, passer uniquement la partie base64 du dataURI
+          if (dataUri.startsWith('data:')) {
+            options.seedImage = dataUri.replace(/^data:image\/\w+;base64,/, '');
+            console.log("Passing base64 to BFL (extracted from dataURI), length:", options.seedImage.length);
+          } else {
+            options.seedImage = dataUri;
+            console.log("Passing image data to BFL directly, length:", dataUri.length);
+          }
           options.strength = 0.8;
         }
         
-        resultImage = await generateImageWithRunware(runwarePrompt, options);
-      } catch (runwareErr) {
-        console.error('Runware fallback error:', runwareErr);
-        return res.status(500).json({ error: 'Both Fal AI and Runware failed' });
+        resultImage = await generateImageWithBFL(bflPrompt, options);
+      } catch (bflErr) {
+        console.error('BFL AI fallback error:', bflErr);
+        return res.status(500).json({ error: 'Both Fal AI and BFL AI failed' });
       }
     }
-    res.json({ description, prompt: finalPrompt || description, image: resultImage, fallback: usedFallback });
+    res.json({ description, prompt: finalPrompt || description, image: resultImage, fallback: usedFallback, fallbackType: usedFallback ? 'BFL AI' : 'Fal AI' });
   } catch (err) {
     console.error('Generate error:', err);
     res.status(500).json({ error: 'Generation failed' });
