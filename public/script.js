@@ -323,14 +323,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const carouselContainer = document.createElement('div');
     carouselContainer.className = 'carousel';
     
-    // Background images for each style that fit the container size
+    // Background images for each style using the local cat images in the images folder
     const styleImages = {
-      'Watercolor': 'url("https://cdn.pixabay.com/photo/2017/08/30/12/45/girl-2696947_640.jpg")',
-      'Illustration': 'url("https://cdn.pixabay.com/photo/2017/01/12/05/22/colorful-1973736_640.jpg")',
-      'Pop Art': 'url("https://cdn.pixabay.com/photo/2016/11/18/16/55/art-1835828_640.jpg")',
-      'Sketch': 'url("https://cdn.pixabay.com/photo/2017/07/03/20/17/abstract-2468874_640.jpg")',
-      '3D Cartoon': 'url("https://cdn.pixabay.com/photo/2019/10/25/06/20/pig-4576208_640.jpg")',
-      'Oil Painting': 'url("https://cdn.pixabay.com/photo/2020/01/02/09/32/art-4735443_640.jpg")',
+      'Aquarelle': 'url("/images/aquarelle cat.jpg")',
+      'Illustration': 'url("/images/illustration cat.jpg")',
+      'Pop Art': 'url("/images/pop art cat.jpg")',
+      'Croquis': 'url("/images/croquis cat.jpg")',
+      'Dessin Animé 3D': 'url("/images/3D cat.jpg")',
+      'Peinture à l\'huile': 'url("/images/oil cat.png")',
     };
     
     // Add mouse drag scrolling functionality
@@ -389,8 +389,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Create the style item (circular button)
       const item = document.createElement('div');
       item.className = 'styleItem';
-      // Set background image via CSS variable
-      item.style.setProperty('--bg-image', styleImages[style] || 'none');
+      
+      // Set the background image directly from the styleImages object
+      if (styleImages[style]) {
+        item.style.backgroundImage = styleImages[style];
+      }
       
       // Create the label that will appear below the style item
       const label = document.createElement('div');
@@ -455,9 +458,6 @@ document.addEventListener('DOMContentLoaded', () => {
       textSpan.className = 'styleText';
       textSpan.textContent = style;
       item.appendChild(textSpan);
-      
-      // Set background image using ::before via inline style
-      item.style.setProperty('background-image', styleImages[style] || 'none');
       
       // Assemble the wrapper with the item and label
       wrapper.appendChild(item);
