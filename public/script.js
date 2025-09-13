@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const squareBtn = document.getElementById('squareBtn');
   const circleBtn = document.getElementById('circleBtn');
   const triangleBtn = document.getElementById('triangleBtn');
+  const lineBtn = document.getElementById('lineBtn');
 
   // State variables
   let isDrawing = false;
@@ -56,11 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
   let shapes = []; // Array to store all shapes on canvas
   let activeShape = null; // Currently selected shape for interaction
   let isCreatingShape = false; // Flag for shape creation mode
-  let selectedShapeType = null; // Current shape type (square, circle, triangle)
+  let selectedShapeType = null; // Current shape type (square, circle, triangle, line)
   let isResizingShape = false; // Flag for resizing mode
   let isMovingShape = false; // Flag for moving mode
+  let isRotatingShape = false; // Flag for rotating mode
   let lastClickTime = 0; // For double-click detection
   let startPos = { x: 0, y: 0 }; // For resizing and moving operations
+  let startAngle = 0; // For rotation operations
   let resizeCorner = null; // Which corner is being used for resizing
   
   // Helper function to determine the correct French article
@@ -129,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Mouse events
     canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mouseout', stopDrawing);
 
@@ -140,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: false });
     canvas.addEventListener('touchmove', (e) => {
       e.preventDefault();
-      draw(e.touches[0]);
+      handleMouseMove(e.touches[0]);
     }, { passive: false });
     window.addEventListener('touchend', stopDrawing);
     
@@ -196,23 +199,46 @@ document.addEventListener('DOMContentLoaded', () => {
       return; // Don't proceed with regular drawing
     }
     
-    // Check for shape interaction (resize or move)
+    // Check if we're clicking on a rotation handle
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const shape = shapes[i];
+      if (shape.finalized) continue;
+      
+      if (shape.isOnRotationHandle(x, y)) {
+        // Start rotation mode
+        isRotatingShape = true;
+        activeShape = shape;
+        
+        // Calculate the initial angle between center and mouse position
+        const centerX = shape.centerX;
+        const centerY = shape.centerY;
+        startAngle = Math.atan2(y - centerY, x - centerX) * 180 / Math.PI;
+        
+        // Store the initial rotation
+        startAngle = shape.rotation;
+        
+        redraw();
+        return;
+      }
+    }
+    
+    // First check if we're clicking on a resize handle
+    const resizeHandleInfo = findResizeHandleAt(x, y);
+    if (resizeHandleInfo) {
+      // Prepare for shape resizing
+      isResizingShape = true;
+      activeShape = resizeHandleInfo.shape;
+      resizeCorner = resizeHandleInfo.cornerIndex;
+      return; // Don't proceed with regular drawing
+    }
+    
+    // Check for shape body interaction
     const clickedShape = findShapeAt(x, y);
     
     if (clickedShape) {
       // Only allow interaction if the shape hasn't been finalized
       if (!clickedShape.finalized) {
-        // Check if clicking near a resize handle first
-        const cornerIndex = clickedShape.getResizeCorner(x, y);
-        if (cornerIndex !== null) {
-          // Prepare for shape resizing
-          isResizingShape = true;
-          activeShape = clickedShape;
-          resizeCorner = cornerIndex;
-          return; // Don't proceed with regular drawing
-        }
-        
-        // If not clicking a resize handle, prepare for movement with a single click
+        // Prepare for movement
         isMovingShape = true;
         activeShape = clickedShape;
         startPos.x = x;
@@ -245,6 +271,117 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * Handle mouse movement for cursor feedback and drawing
+   */
+  function handleMouseMove(e) {
+    const { x, y } = getCanvasPos(e);
+    
+    // Handle rotation if we're in rotating mode
+    if (isRotatingShape && activeShape) {
+      // Calculate angle between center of shape, original position, and current position
+      const centerX = activeShape.centerX;
+      const centerY = activeShape.centerY;
+      
+      const currentAngle = Math.atan2(y - centerY, x - centerX) * 180 / Math.PI;
+      const angleDiff = currentAngle - startAngle;
+      
+      // Update shape rotation (5° increments for more controlled rotation)
+      const rotationStep = 5; // Rotate in 5-degree increments
+      const snappedAngleDiff = Math.round(angleDiff / rotationStep) * rotationStep;
+      
+      // Set the rotation directly rather than incrementally to avoid accumulation errors
+      activeShape.rotation = (startAngle + snappedAngleDiff) % 360;
+      if (activeShape.rotation < 0) {
+        activeShape.rotation += 360;
+      }
+      
+      redraw();
+      return;
+    }
+    
+    // Check if we're hovering over a resize handle and change cursor
+    if (!isDrawing && !isResizingShape && !isMovingShape && !isRotatingShape) {
+      let foundInteraction = false;
+      
+      // Check if we're over a rotation handle
+      for (let i = shapes.length - 1; i >= 0; i--) {
+        const shape = shapes[i];
+        if (shape.finalized) continue;
+        
+        if (shape.isOnRotationHandle(x, y)) {
+          foundInteraction = true;
+          canvas.style.cursor = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><path fill=\'white\' d=\'M12,5V1L7,6l5,5V7c3.31,0,6,2.69,6,6s-2.69,6-6,6s-6-2.69-6-6H4c0,4.42,3.58,8,8,8s8-3.58,8-8S16.42,5,12,5z\'/></svg>") 12 12, auto';
+          break;
+        }
+      }
+      
+      // If not over rotation handle, check other handles
+      if (!foundInteraction) {
+        // Check if the mouse is over any resize handle
+        const resizeHandleInfo = findResizeHandleAt(x, y);
+        if (resizeHandleInfo) {
+          const { shape, cornerIndex } = resizeHandleInfo;
+          foundInteraction = true;
+          
+          // Set appropriate cursor based on shape type and corner
+          if (shape.type === 'line') {
+            canvas.style.cursor = 'pointer';
+          } else if (shape.type === 'circle') {
+            // For circle, use different cursors based on which handle
+            switch(cornerIndex) {
+              case 0: // Left handle
+              case 1: // Right handle
+                canvas.style.cursor = 'ew-resize';
+                break;
+              case 2: // Top handle
+              case 3: // Bottom handle
+                canvas.style.cursor = 'ns-resize';
+                break;
+            }
+          } else {
+            // For square and triangle, use diagonal resize cursors for corners
+            switch(cornerIndex) {
+              case 0: // Top-left or top
+                canvas.style.cursor = shape.type === 'triangle' ? 'n-resize' : 'nwse-resize';
+                break;
+              case 1: // Top-right or bottom-left for triangle
+                canvas.style.cursor = shape.type === 'triangle' ? 'sw-resize' : 'nesw-resize';
+                break;
+              case 2: // Bottom-right or bottom-right for triangle
+                canvas.style.cursor = shape.type === 'triangle' ? 'se-resize' : 'nwse-resize';
+                break;
+              case 3: // Bottom-left (for square)
+                canvas.style.cursor = 'nesw-resize';
+                break;
+            }
+          }
+        } else {
+          // Check if over a shape body
+          const clickedShape = findShapeAt(x, y);
+          if (clickedShape && !clickedShape.finalized) {
+            foundInteraction = true;
+            canvas.style.cursor = 'move';
+          }
+        }
+      }
+      
+      // Reset cursor if not over any shape handle
+      if (!foundInteraction) {
+        if (isCreatingShape) {
+          canvas.style.cursor = 'crosshair';
+        } else if (isErasing) {
+          canvas.style.cursor = 'cell'; // Crosshair with dot to indicate eraser
+        } else {
+          canvas.style.cursor = 'crosshair';
+        }
+      }
+    }
+    
+    // Call the original draw function to handle actual drawing/resizing/moving
+    draw(e);
+  }
+  
   /**
    * Draw a line segment or handle shape resizing/moving during mouse/touch move.
    */
@@ -294,6 +431,26 @@ document.addEventListener('DOMContentLoaded', () => {
    * Finish the current stroke or shape interaction on mouseup/touchend.
    */
   function stopDrawing() {
+    // Handle rotation operation
+    if (isRotatingShape) {
+      // Add to undo stack if shape was rotated
+      if (activeShape) {
+        paths.push({
+          isShape: true,
+          shapeId: activeShape.id,
+          action: 'rotate',
+          previousRotation: startAngle,
+          newRotation: activeShape.rotation
+        });
+        undoBtn.classList.add('active');
+      }
+      
+      // Reset the rotation flag but keep the shape active
+      isRotatingShape = false;
+      drawingChanged = true;
+      return;
+    }
+    
     // Handle shape operations first
     if (isResizingShape || isMovingShape) {
       // Add to undo stack if shape was resized or moved
@@ -471,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Shape class definition
   class Shape {
     constructor(type, x, y, width, height, color) {
-      this.type = type; // 'square', 'circle', or 'triangle'
+      this.type = type; // 'square', 'circle', 'triangle', or 'line'
       this.x = x;
       this.y = y;
       this.width = width;
@@ -481,6 +638,9 @@ document.addEventListener('DOMContentLoaded', () => {
       this.fillColor = 'white'; // Default white fill
       this.id = Date.now() + Math.random().toString(36).substr(2, 9);
       this.finalized = false; // Flag to track if shape has been finalized
+      this.rotation = 0; // Rotation in degrees (0-360)
+      this.centerX = x + width / 2; // Center X for rotation
+      this.centerY = y + height / 2; // Center Y for rotation
     }
     
     // Check if a point is inside this shape
@@ -523,11 +683,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return s > 0 && t > 0 && (s + t) < 2 * A * sign;
       }
       
+      // For line - check if point is close to the line segment
+      else if (this.type === 'line') {
+        // Start and end points of the line
+        const x1 = this.x;
+        const y1 = this.y;
+        const x2 = this.x + this.width;
+        const y2 = this.y + this.height;
+        
+        // Calculate distance from point to line
+        const lineLength = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        if (lineLength === 0) return false;  // If it's not a line but a point
+        
+        // Use the formula for distance from point to line segment
+        const distance = Math.abs((y2 - y1) * px - (x2 - x1) * py + x2 * y1 - y2 * x1) / lineLength;
+        
+        // Check if the point projection lies on the segment
+        const dot = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / (lineLength * lineLength);
+        
+        // If the point is close enough to the line and projection lies on the segment
+        return distance <= 10 && dot >= 0 && dot <= 1;  // 10 pixels tolerance for selection
+      }
+      
       return false;
     }
     
     // Check if a point is near a corner of this shape
-    getResizeCorner(px, py, tolerance = 10) {
+    getResizeCorner(px, py, tolerance = 20) { // Increased from 10 to 20 pixels for easier interaction
       const corners = this.getCorners();
       
       for (let i = 0; i < corners.length; i++) {
@@ -540,6 +722,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       return null; // No corner found
+    }
+    
+    // Method signature kept for compatibility with existing code but functionality removed
+    getFlipEdge(px, py, tolerance = 20) {
+      // Flip functionality has been disabled
+      return null; // Always return null as we no longer support flipping
     }
     
     // Get all corners of this shape for resizing
@@ -568,6 +756,12 @@ document.addEventListener('DOMContentLoaded', () => {
           { x: this.x + this.width, y: this.y + this.height } // Bottom-right
         ];
       }
+      else if (this.type === 'line') {
+        return [
+          { x: this.x, y: this.y }, // Start point
+          { x: this.x + this.width, y: this.y + this.height } // End point
+        ];
+      }
       return [];
     }
     
@@ -577,6 +771,18 @@ document.addEventListener('DOMContentLoaded', () => {
       context.strokeStyle = this.borderColor;
       context.fillStyle = this.fillColor;
       context.lineWidth = 2;
+      
+      // Update center point for rotation
+      this.centerX = this.x + this.width / 2;
+      this.centerY = this.y + this.height / 2;
+      
+      // Apply rotation if any
+      if (this.rotation !== 0) {
+        // Translate to center of shape, rotate, then translate back
+        context.translate(this.centerX, this.centerY);
+        context.rotate(this.rotation * Math.PI / 180);
+        context.translate(-this.centerX, -this.centerY);
+      }
       
       if (this.type === 'square') {
         context.beginPath();
@@ -605,16 +811,89 @@ document.addEventListener('DOMContentLoaded', () => {
         context.fill();
         context.stroke();
       }
+      else if (this.type === 'line') {
+        context.beginPath();
+        // Draw a straight line from start to end points
+        context.moveTo(this.x, this.y); // Start point
+        context.lineTo(this.x + this.width, this.y + this.height); // End point
+        
+        // Lines are stroked but not filled
+        context.lineWidth = 3; // Slightly thicker than default
+        context.lineCap = 'round'; // Use round caps for better appearance
+        context.stroke();
+      }
       
-      // If this is the active shape, draw resize handles
+      // If this is the active shape, draw resize handles and rotation indicator
       if (this === activeShape) {
+        // Reset rotation for drawing handles in the correct positions
+        context.restore();
+        context.save();
+        
         const corners = this.getCorners();
         for (const corner of corners) {
+          // Draw larger, more visible resize handles
+          // First draw a white background circle for contrast
+          context.fillStyle = 'white';
+          context.beginPath();
+          context.arc(corner.x, corner.y, 8, 0, Math.PI * 2);
+          context.fill();
+          
+          // Then draw a slightly smaller colored circle on top
           context.fillStyle = this.borderColor;
           context.beginPath();
-          context.arc(corner.x, corner.y, 5, 0, Math.PI * 2);
+          context.arc(corner.x, corner.y, 6, 0, Math.PI * 2);
           context.fill();
+          
+          // Add a border for better definition
+          context.strokeStyle = 'white';
+          context.lineWidth = 1.5;
+          context.beginPath();
+          context.arc(corner.x, corner.y, 6, 0, Math.PI * 2);
+          context.stroke();
         }
+        
+        // Draw rotation indicator - a small circle above the shape
+        const rotationHandleDistance = Math.max(this.width, this.height) / 2 + 25;
+        const rotationHandleX = this.centerX;
+        const rotationHandleY = this.centerY - rotationHandleDistance;
+        
+        // Draw a line from center to rotation handle
+        context.beginPath();
+        context.setLineDash([3, 3]); // Dashed line
+        context.moveTo(this.centerX, this.centerY);
+        context.lineTo(rotationHandleX, rotationHandleY);
+        context.strokeStyle = this.borderColor;
+        context.lineWidth = 1.5;
+        context.stroke();
+        context.setLineDash([]); // Reset dash
+        
+        // Draw rotation handle
+        context.fillStyle = '#4CAF50'; // Green color for rotation
+        context.beginPath();
+        context.arc(rotationHandleX, rotationHandleY, 8, 0, Math.PI * 2);
+        context.fill();
+        
+        // Add a border for better definition
+        context.strokeStyle = 'white';
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.arc(rotationHandleX, rotationHandleY, 8, 0, Math.PI * 2);
+        context.stroke();
+        
+        // Draw rotation icon inside the handle (simple curved arrow)
+        context.beginPath();
+        context.arc(rotationHandleX, rotationHandleY, 4, 0, 1.5 * Math.PI);
+        context.strokeStyle = 'white';
+        context.lineWidth = 1.5;
+        context.stroke();
+        
+        // Draw arrowhead
+        context.beginPath();
+        context.moveTo(rotationHandleX, rotationHandleY - 4);
+        context.lineTo(rotationHandleX - 2, rotationHandleY - 6);
+        context.lineTo(rotationHandleX - 3, rotationHandleY - 2);
+        context.fillStyle = 'white';
+        context.fill();
       }
       
       context.restore();
@@ -713,12 +992,110 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
         }
       }
+      else if (this.type === 'line') {
+        // For a line, the width and height represent the vector from start to end
+        switch (cornerIndex) {
+          case 0: // Start point
+            // Calculate new width and height based on the end point (which stays fixed)
+            const endX = this.x + this.width;
+            const endY = this.y + this.height;
+            // Update line dimensions
+            this.width = endX - newX;
+            this.height = endY - newY;
+            // Update starting position
+            this.x = newX;
+            this.y = newY;
+            break;
+          case 1: // End point
+            // Start point stays fixed, just update width and height
+            this.width = newX - this.x;
+            this.height = newY - this.y;
+            break;
+        }
+      }
     }
     
     // Move the shape
     move(dx, dy) {
       this.x += dx;
       this.y += dy;
+    }
+    
+    // Check if a point is near the rotation handle
+    isOnRotationHandle(px, py) {
+      // Update center point
+      this.centerX = this.x + this.width / 2;
+      this.centerY = this.y + this.height / 2;
+      
+      const rotationHandleDistance = Math.max(this.width, this.height) / 2 + 25;
+      const rotationHandleX = this.centerX;
+      const rotationHandleY = this.centerY - rotationHandleDistance;
+      
+      // Calculate distance from point to rotation handle
+      const distance = Math.sqrt(Math.pow(px - rotationHandleX, 2) + Math.pow(py - rotationHandleY, 2));
+      
+      // Return true if within 20px of the handle (for easier interaction)
+      return distance <= 20;
+    }
+    
+    // Rotate the shape by the given angle in degrees
+    rotate(angle) {
+      this.rotation = (this.rotation + angle) % 360;
+      if (this.rotation < 0) {
+        this.rotation += 360;
+      }
+    }
+    
+    // Flip the shape horizontally
+    flipHorizontal() {
+      if (this.type === 'square' || this.type === 'circle') {
+        // For square and circle, we flip around the center
+        // No visible change needed for these symmetrical shapes
+        // But we'll trigger the action for consistency with undo/redo
+        return true;
+      }
+      else if (this.type === 'triangle') {
+        // For triangle, we need to adjust the position to maintain the same footprint
+        // Since our triangle has its point at the top, flipping horizontally means
+        // moving it by its width to keep it in the same visual space
+        this.x = this.x + this.width - this.width; // Stays the same visually
+        return true;
+      }
+      else if (this.type === 'line') {
+        // For line, swap the start and end x coordinates
+        const endX = this.x + this.width;
+        this.width = -this.width;
+        this.x = endX;
+        return true;
+      }
+      return false;
+    }
+    
+    // Flip the shape vertically
+    flipVertical() {
+      if (this.type === 'square' || this.type === 'circle') {
+        // For square and circle, we flip around the center
+        // No visible change needed for these symmetrical shapes
+        // But we'll trigger the action for consistency with undo/redo
+        return true;
+      }
+      else if (this.type === 'triangle') {
+        // For triangle, invert it by adjusting the y position
+        // Our triangle points up by default, so flipping makes it point down
+        const oldHeight = this.height;
+        // Adjust y position to maintain same bounding box
+        this.y = this.y + this.height;
+        this.height = -this.height;
+        return true;
+      }
+      else if (this.type === 'line') {
+        // For line, swap the start and end y coordinates
+        const endY = this.y + this.height;
+        this.height = -this.height;
+        this.y = endY;
+        return true;
+      }
+      return false;
     }
   }
   
@@ -762,9 +1139,14 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedShapeType = null;
     
     // Remove active class from all shape buttons
+    squareBtn.classList.remove('active');
     squareBtn.classList.remove('active-eraser');
+    circleBtn.classList.remove('active');
     circleBtn.classList.remove('active-eraser');
+    triangleBtn.classList.remove('active');
     triangleBtn.classList.remove('active-eraser');
+    lineBtn.classList.remove('active');
+    lineBtn.classList.remove('active-eraser');
     
     // Redraw to show the new shape with its resize handles
     redraw();
@@ -779,6 +1161,22 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = shapes.length - 1; i >= 0; i--) {
       if (!shapes[i].finalized && shapes[i].contains(x, y)) {
         return shapes[i];
+      }
+    }
+    return null;
+  }
+  
+  // Helper function to check if a point is over any resize handle
+  function findResizeHandleAt(x, y) {
+    // Check all shapes in reverse order (top to bottom)
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const shape = shapes[i];
+      if (shape.finalized) continue;
+      
+      // Check if we're over a resize handle
+      const cornerIndex = shape.getResizeCorner(x, y);
+      if (cornerIndex !== null) {
+        return { shape, cornerIndex };
       }
     }
     return null;
@@ -800,7 +1198,10 @@ document.addEventListener('DOMContentLoaded', () => {
         circleBtn.classList.remove('active-eraser');
         triangleBtn.classList.remove('active');
         triangleBtn.classList.remove('active-eraser');
+        lineBtn.classList.remove('active');
+        lineBtn.classList.remove('active-eraser');
         // Activate square button
+        squareBtn.classList.add('active');
         squareBtn.classList.add('active-eraser');
         selectedShapeType = 'square';
         isCreatingShape = true;
@@ -824,6 +1225,9 @@ document.addEventListener('DOMContentLoaded', () => {
         squareBtn.classList.remove('active-eraser');
         triangleBtn.classList.remove('active');
         triangleBtn.classList.remove('active-eraser');
+        lineBtn.classList.remove('active');
+        lineBtn.classList.remove('active-eraser');
+        circleBtn.classList.add('active');
         circleBtn.classList.add('active-eraser');
         selectedShapeType = 'circle';
         isCreatingShape = true;
@@ -846,9 +1250,42 @@ document.addEventListener('DOMContentLoaded', () => {
         squareBtn.classList.remove('active-eraser');
         circleBtn.classList.remove('active');
         circleBtn.classList.remove('active-eraser');
+        lineBtn.classList.remove('active');
+        lineBtn.classList.remove('active-eraser');
+        triangleBtn.classList.add('active');
         triangleBtn.classList.add('active-eraser');
         selectedShapeType = 'triangle';
         isCreatingShape = true;
+        // Exit other modes
+        isErasing = false;
+        eraserBtn.classList.remove('active-eraser');
+      }
+      
+      // We don't deselect the active shape when switching tools
+    });
+    
+    lineBtn.addEventListener('click', () => {
+      if (selectedShapeType === 'line') {
+        selectedShapeType = null;
+        lineBtn.classList.remove('active');
+        lineBtn.classList.remove('active-eraser');
+        isCreatingShape = false;
+      } else {
+        // Deactivate other shape buttons
+        squareBtn.classList.remove('active');
+        squareBtn.classList.remove('active-eraser');
+        circleBtn.classList.remove('active');
+        circleBtn.classList.remove('active-eraser');
+        triangleBtn.classList.remove('active');
+        triangleBtn.classList.remove('active-eraser');
+        
+        // Activate line button with both classes for consistency
+        lineBtn.classList.add('active');
+        lineBtn.classList.add('active-eraser');
+        
+        selectedShapeType = 'line';
+        isCreatingShape = true;
+        
         // Exit other modes
         isErasing = false;
         eraserBtn.classList.remove('active-eraser');
@@ -1292,6 +1729,46 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           }
         }
+        else if (removedPath.action === 'flip') {
+          // Find the shape and flip it back
+          const shape = shapes.find(s => s.id === removedPath.shapeId);
+          if (shape) {
+            // Flip in the opposite direction to undo
+            if (removedPath.direction === 'horizontal') {
+              shape.flipHorizontal();
+            } else {
+              shape.flipVertical();
+            }
+            
+            // Save for redo
+            redoPaths.push({
+              isShape: true,
+              action: 'flip',
+              shapeId: shape.id,
+              direction: removedPath.direction
+            });
+          }
+        }
+        else if (removedPath.action === 'rotate') {
+          // Find the shape and restore its previous rotation
+          const shape = shapes.find(s => s.id === removedPath.shapeId);
+          if (shape) {
+            // Store current rotation for redo
+            const currentRotation = shape.rotation;
+            
+            // Restore the previous rotation
+            shape.rotation = removedPath.previousRotation;
+            
+            // Save for redo
+            redoPaths.push({
+              isShape: true,
+              action: 'rotate',
+              shapeId: shape.id,
+              previousRotation: currentRotation,
+              newRotation: removedPath.previousRotation
+            });
+          }
+        }
       }
       else {
         // Standard undo for individual drawing paths
@@ -1352,6 +1829,46 @@ document.addEventListener('DOMContentLoaded', () => {
               action: 'delete',
               shapeId: removedShape.id,
               shapeData: removedShape
+            });
+          }
+        }
+        else if (pathToRestore.action === 'flip') {
+          // Find the shape and flip it again
+          const shape = shapes.find(s => s.id === pathToRestore.shapeId);
+          if (shape) {
+            // Apply the same flip to redo
+            if (pathToRestore.direction === 'horizontal') {
+              shape.flipHorizontal();
+            } else {
+              shape.flipVertical();
+            }
+            
+            // Save for undo
+            paths.push({
+              isShape: true,
+              action: 'flip',
+              shapeId: shape.id,
+              direction: pathToRestore.direction
+            });
+          }
+        }
+        else if (pathToRestore.action === 'rotate') {
+          // Find the shape and restore its new rotation
+          const shape = shapes.find(s => s.id === pathToRestore.shapeId);
+          if (shape) {
+            // Store current rotation for undo
+            const currentRotation = shape.rotation;
+            
+            // Apply the new rotation
+            shape.rotation = pathToRestore.newRotation;
+            
+            // Save for undo
+            paths.push({
+              isShape: true,
+              action: 'rotate',
+              shapeId: shape.id,
+              previousRotation: currentRotation,
+              newRotation: pathToRestore.newRotation
             });
           }
         }
