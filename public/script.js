@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'Aquarelle': 'Transformer ce croquis en une peinture aquarelle délicate, avec des lavis de couleur doux, des dégradés subtils et un effet de pigments naturels sur papier texturé. Mettre en valeur la transparence, les fondus et des coups de pinceau fluides.',
     'Illustration': 'Améliorer ce croquis en une illustration nette et détaillée, avec des lignes précises, des couleurs vives et des ombrages équilibrés. Style professionnel et raffiné, adapté à l’éditorial ou au concept art.',
     'Pop Art': 'Convertir ce croquis en une œuvre Pop Art audacieuse, avec des couleurs saturées, des contours épais, des motifs tramés et un contraste fort. Donner un style iconique et ludique, inspiré de la bande dessinée.',
-    'Croquis': 'Raffiner ce croquis tout en conservant l’aspect brut et expressif du trait. Utiliser des textures de crayon ou de fusain, avec un style carnet de dessin qui met en valeur le geste et la forme.',
+    'Croquis': 'Transformer ce croquis en une image qui garde l’apparence d’un prédessin ou d’un avant-dessin. Conserver uniquement les traits rapides, les lignes expressives et les hachures, sans ajouter de réalisme ni de volume 3D. Éviter les couleurs fortes : utiliser seulement quelques nuances discrètes, comme si l’image était à l’état d’esquisse. Employer des textures de crayon ou de fusain avec un style carnet de dessin, qui met en valeur le geste et la construction de la forme, plutôt que l’aspect global ou réaliste de l’image.',
     'Dessin Animé 3D': 'Transformer ce croquis en un rendu cartoon 3D coloré, avec des ombrages doux, une lumière réaliste et des personnages stylisés. Mettre l’accent sur l’expression, les proportions ludiques et un rendu proche d’un film d’animation.',
     'Peinture à l\'huile': 'Convertir ce croquis en une peinture à l’huile riche et texturée, avec des coups de pinceau visibles, des couleurs profondes et des effets de lumière réalistes. Donner une esthétique classique et artistique.'
   };
@@ -236,15 +236,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fill background white
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     // Redraw each stored path
     for (const path of paths) {
-      // Vérifier s'il s'agit d'un point unique (simple clic)
-      if (path.points.length === 1) {
-        // Dessiner un point circulaire
+      // Check if it's an imported sketch
+      if (path.isImportedSketch && path.imageData) {
+        // Create a temporary image to draw the imported sketch
+        const img = new Image();
+        img.onload = function() {
+          // Calculate aspect ratio to fit image properly
+          const scale = Math.min(
+            canvas.width / img.width,
+            canvas.height / img.height
+          ) * 0.8; // Scale to 80% of available space
+          
+          const newWidth = img.width * scale;
+          const newHeight = img.height * scale;
+          
+          // Center the image
+          const x = (canvas.width - newWidth) / 2;
+          const y = (canvas.height - newHeight) / 2;
+          
+          // Draw the image
+          ctx.drawImage(img, x, y, newWidth, newHeight);
+        };
+        // Set the source to start loading
+        img.src = path.imageData;
+      } 
+      // Check if it's a single point (simple click)
+      else if (path.points && path.points.length === 1) {
+        // Draw a circular point
         const point = path.points[0];
         drawDot(point.x, point.y, path.color, path.size);
-      } else {
-        // Dessiner une ligne pour les traits normaux
+      }
+      // Otherwise it's a regular line
+      else if (path.points && path.points.length > 1) {
+        // Draw a line for normal strokes
         ctx.beginPath();
         ctx.strokeStyle = path.color;
         ctx.lineWidth = path.size;
@@ -739,22 +766,32 @@ document.addEventListener('DOMContentLoaded', () => {
   // Clear Canvas button clears all paths and redraws an empty canvas
   const clearCanvasBtn = document.getElementById('clearCanvasBtn');
   clearCanvasBtn.addEventListener('click', () => {
-    // Save current paths for undo functionality
+    // Save current paths for undo functionality if there are any
     if (paths.length > 0) {
       // Save all current paths as one undo step
       redoPaths.push({
         isFullCanvas: true,
         paths: [...paths]
       });
-      // Clear all paths
-      paths = [];
-      // Redraw empty canvas
-      redraw();
-      // Update button states
-      undoBtn.classList.remove('active');
+      // Update redo button visual state
       redoBtn.classList.add('active');
-      drawingChanged = true;
     }
+    
+    // Clear all paths - always do this regardless of whether paths exist
+    paths = [];
+    
+    // Redraw empty canvas - always clear the canvas
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Update button states
+    undoBtn.classList.remove('active');
+    
+    // Mark as changed to trigger prediction
+    drawingChanged = true;
+    
+    // Log for debugging
+    console.log('Canvas cleared');
   });
 
   // Yes button records positive response and hides prompt
@@ -939,6 +976,16 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Draw the image
       ctx.drawImage(img, x, y, newWidth, newHeight);
+      
+      // Add a special entry to the paths array for imported sketches
+      // This will make the Clear Canvas button work with imported sketches
+      paths.push({
+        isImportedSketch: true,
+        imageData: imageData
+      });
+      
+      // Update the undo button visual state
+      undoBtn.classList.add('active');
       
       // Mark as changed to trigger prediction
       drawingChanged = true;
