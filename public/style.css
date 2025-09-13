@@ -434,6 +434,18 @@ html, body {
   background: linear-gradient(135deg, #cc2222 0%, #ff5555 100%);
   transform: scale(1.05);
 }
+
+/* Style for shape buttons */
+.shapeBtn {
+  font-size: 0.9rem;
+  background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+}
+
+.shapeBtn.active {
+  background: linear-gradient(135deg, #FDE484 0%, #EF8C43 100%);
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(253, 228, 132, 0.7);
+}
 .toolButton:hover {
   background: linear-gradient(135deg, #381978 0%, #7460C4 100%);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);

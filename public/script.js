@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const yesBtn = document.getElementById('yesBtn');
   const noBtn = document.getElementById('noBtn');
   const progressBar = topPrompt.querySelector('.progress');
+  
+  // Shape tool buttons
+  const squareBtn = document.getElementById('squareBtn');
+  const circleBtn = document.getElementById('circleBtn');
+  const triangleBtn = document.getElementById('triangleBtn');
 
   // State variables
   let isDrawing = false;
@@ -46,6 +51,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastGuess = '';
   let lastAnswer = '';
   let selectedStyle = '';
+  
+  // Shape state variables
+  let shapes = []; // Array to store all shapes on canvas
+  let activeShape = null; // Currently selected shape for interaction
+  let isCreatingShape = false; // Flag for shape creation mode
+  let selectedShapeType = null; // Current shape type (square, circle, triangle)
+  let isResizingShape = false; // Flag for resizing mode
+  let isMovingShape = false; // Flag for moving mode
+  let lastClickTime = 0; // For double-click detection
+  let startPos = { x: 0, y: 0 }; // For resizing and moving operations
+  let resizeCorner = null; // Which corner is being used for resizing
   
   // Helper function to determine the correct French article
   function getArticle(word) {
@@ -131,6 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize button states
     undoBtn.classList.remove('active');
     redoBtn.classList.remove('active');
+    
+    // Initialize shape tools
+    initShapeTools();
   }
 
   /**
@@ -157,37 +176,109 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   /**
-   * Begin a new stroke on mousedown/touchstart.
+   * Begin a new stroke or shape interaction on mousedown/touchstart.
    */
   function startDrawing(e) {
-    isDrawing = true;
-    currentPath = [];
+    const { x, y } = getCanvasPos(e);
+    
     // Clear redo history when starting a new stroke
-    // This follows the standard pattern for drawing applications
     if (redoPaths.length > 0) {
       redoPaths = [];
       // Update redo button visual state
       redoBtn.classList.remove('active');
     }
-    drawingChanged = true;
     
-    // Dessiner un point immédiatement pour un retour visuel instantané
-    const { x, y } = getCanvasPos(e);
-    drawDot(x, y, isErasing ? '#ffffff' : currentColor, brushSize);
+    // Handle shape creation first
+    if (isCreatingShape && selectedShapeType) {
+      // Create a new shape
+      createShape(selectedShapeType, x, y);
+      drawingChanged = true;
+      return; // Don't proceed with regular drawing
+    }
     
-    draw(e);
+    // Check for shape interaction (resize or move)
+    const clickedShape = findShapeAt(x, y);
+    
+    if (clickedShape) {
+      // Only allow interaction if the shape hasn't been finalized
+      if (!clickedShape.finalized) {
+        // Check if clicking near a resize handle first
+        const cornerIndex = clickedShape.getResizeCorner(x, y);
+        if (cornerIndex !== null) {
+          // Prepare for shape resizing
+          isResizingShape = true;
+          activeShape = clickedShape;
+          resizeCorner = cornerIndex;
+          return; // Don't proceed with regular drawing
+        }
+        
+        // If not clicking a resize handle, prepare for movement with a single click
+        isMovingShape = true;
+        activeShape = clickedShape;
+        startPos.x = x;
+        startPos.y = y;
+        redraw(); // To show resize handles
+        return; // Don't proceed with regular drawing
+      }
+      // If shape is finalized, treat it like the background - just draw on it
+    } else {
+      // Clicked on empty canvas area
+      // If there's an active shape, finalize it
+      if (activeShape) {
+        activeShape.finalized = true; // Mark the shape as finalized
+        activeShape = null;
+        redraw(); // Redraw to remove resize handles
+      }
+      
+      // Only proceed with drawing if not in shape creation mode
+      if (!isCreatingShape) {
+        // Regular drawing behavior
+        isDrawing = true;
+        currentPath = [];
+        drawingChanged = true;
+        
+        // Draw a point immediately for instant visual feedback
+        drawDot(x, y, isErasing ? '#ffffff' : currentColor, brushSize);
+        
+        draw(e);
+      }
+    }
   }
 
   /**
-   * Draw a line segment to the current cursor position.
+   * Draw a line segment or handle shape resizing/moving during mouse/touch move.
    */
   function draw(e) {
-    if (!isDrawing) return;
     const { x, y } = getCanvasPos(e);
+    
+    // Handle shape resizing
+    if (isResizingShape && activeShape && resizeCorner !== null) {
+      activeShape.resize(resizeCorner, x, y);
+      redraw();
+      drawingChanged = true;
+      return;
+    }
+    
+    // Handle shape moving
+    if (isMovingShape && activeShape) {
+      const dx = x - startPos.x;
+      const dy = y - startPos.y;
+      activeShape.move(dx, dy);
+      startPos.x = x;
+      startPos.y = y;
+      redraw();
+      drawingChanged = true;
+      return;
+    }
+    
+    // Regular drawing behavior
+    if (!isDrawing) return;
+    
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = isErasing ? '#ffffff' : currentColor;
     ctx.lineWidth = brushSize;
+    
     if (currentPath.length === 0) {
       ctx.beginPath();
       ctx.moveTo(x, y);
@@ -200,11 +291,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Finish the current stroke on mouseup/touchend.
+   * Finish the current stroke or shape interaction on mouseup/touchend.
    */
   function stopDrawing() {
+    // Handle shape operations first
+    if (isResizingShape || isMovingShape) {
+      // Add to undo stack if shape was resized or moved
+      if (activeShape) {
+        paths.push({
+          isShape: true,
+          shapeId: activeShape.id,
+          action: 'modify'
+        });
+        undoBtn.classList.add('active');
+      }
+      
+      // Reset the shape interaction flags but keep the shape active
+      // so the user can continue editing it until they click elsewhere
+      isResizingShape = false;
+      isMovingShape = false;
+      resizeCorner = null;
+      drawingChanged = true;
+      
+      // Don't set activeShape to null here - keep it selected
+      // It will be finalized when the user clicks elsewhere
+      
+      return;
+    }
+    
+    // Regular drawing behavior
     if (!isDrawing) return;
     isDrawing = false;
+    
     if (currentPath.length > 0) {
       paths.push({
         points: currentPath.slice(),
@@ -239,8 +357,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Redraw each stored path
     for (const path of paths) {
+      // Check if it's a shape operation
+      if (path.isShape) {
+        // We don't draw shapes here, as they're stored in the shapes array
+        // and drawn separately below
+        continue;
+      }
       // Check if it's an imported sketch
-      if (path.isImportedSketch && path.imageData) {
+      else if (path.isImportedSketch && path.imageData) {
         // Create a temporary image to draw the imported sketch
         const img = new Image();
         img.onload = function() {
@@ -281,6 +405,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         ctx.stroke();
       }
+    }
+    
+    // Draw all shapes
+    for (const shape of shapes) {
+      shape.draw(ctx);
     }
   }
 
@@ -333,6 +462,400 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Set initial color display
     currentColorDisplay.style.background = currentColor;
+  }
+  
+  /**
+   * Shape related functions
+   */
+  
+  // Shape class definition
+  class Shape {
+    constructor(type, x, y, width, height, color) {
+      this.type = type; // 'square', 'circle', or 'triangle'
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+      this.color = color;
+      this.borderColor = color;
+      this.fillColor = 'white'; // Default white fill
+      this.id = Date.now() + Math.random().toString(36).substr(2, 9);
+      this.finalized = false; // Flag to track if shape has been finalized
+    }
+    
+    // Check if a point is inside this shape
+    contains(px, py) {
+      // For square (actually rectangle)
+      if (this.type === 'square') {
+        return px >= this.x && px <= this.x + this.width &&
+               py >= this.y && py <= this.y + this.height;
+      }
+      
+      // For circle
+      else if (this.type === 'circle') {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        const rx = this.width / 2;
+        const ry = this.height / 2;
+        
+        const dx = (px - centerX) / rx;
+        const dy = (py - centerY) / ry;
+        return dx * dx + dy * dy <= 1;
+      }
+      
+      // For triangle (assuming equilateral triangle pointing up)
+      else if (this.type === 'triangle') {
+        const x1 = this.x + this.width / 2; // Top point
+        const y1 = this.y;
+        
+        const x2 = this.x; // Bottom left
+        const y2 = this.y + this.height;
+        
+        const x3 = this.x + this.width; // Bottom right
+        const y3 = this.y + this.height;
+        
+        // Check if point is inside triangle using barycentric coordinates
+        const A = 0.5 * (-y2 * x3 + y1 * (-x2 + x3) + x1 * (y2 - y3) + x2 * y3);
+        const sign = A < 0 ? -1 : 1;
+        const s = (y1 * x3 - x1 * y3 + (y3 - y1) * px + (x1 - x3) * py) * sign;
+        const t = (x1 * y2 - y1 * x2 + (y1 - y2) * px + (x2 - x1) * py) * sign;
+        
+        return s > 0 && t > 0 && (s + t) < 2 * A * sign;
+      }
+      
+      return false;
+    }
+    
+    // Check if a point is near a corner of this shape
+    getResizeCorner(px, py, tolerance = 10) {
+      const corners = this.getCorners();
+      
+      for (let i = 0; i < corners.length; i++) {
+        const corner = corners[i];
+        const distance = Math.sqrt(Math.pow(corner.x - px, 2) + Math.pow(corner.y - py, 2));
+        
+        if (distance <= tolerance) {
+          return i; // Return the index of the corner
+        }
+      }
+      
+      return null; // No corner found
+    }
+    
+    // Get all corners of this shape for resizing
+    getCorners() {
+      if (this.type === 'square') {
+        return [
+          { x: this.x, y: this.y }, // Top-left
+          { x: this.x + this.width, y: this.y }, // Top-right
+          { x: this.x + this.width, y: this.y + this.height }, // Bottom-right
+          { x: this.x, y: this.y + this.height } // Bottom-left
+        ];
+      }
+      else if (this.type === 'circle') {
+        // For a circle, we'll use cardinal points as handles
+        return [
+          { x: this.x, y: this.y + this.height/2 }, // Left
+          { x: this.x + this.width, y: this.y + this.height/2 }, // Right
+          { x: this.x + this.width/2, y: this.y }, // Top
+          { x: this.x + this.width/2, y: this.y + this.height } // Bottom
+        ];
+      }
+      else if (this.type === 'triangle') {
+        return [
+          { x: this.x + this.width/2, y: this.y }, // Top
+          { x: this.x, y: this.y + this.height }, // Bottom-left
+          { x: this.x + this.width, y: this.y + this.height } // Bottom-right
+        ];
+      }
+      return [];
+    }
+    
+    // Draw the shape on the canvas
+    draw(context) {
+      context.save();
+      context.strokeStyle = this.borderColor;
+      context.fillStyle = this.fillColor;
+      context.lineWidth = 2;
+      
+      if (this.type === 'square') {
+        context.beginPath();
+        context.rect(this.x, this.y, this.width, this.height);
+        context.fill();
+        context.stroke();
+      }
+      else if (this.type === 'circle') {
+        context.beginPath();
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        const radiusX = this.width / 2;
+        const radiusY = this.height / 2;
+        
+        context.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      }
+      else if (this.type === 'triangle') {
+        context.beginPath();
+        // Draw an equilateral triangle pointing upward
+        context.moveTo(this.x + this.width / 2, this.y); // Top point
+        context.lineTo(this.x, this.y + this.height); // Bottom left
+        context.lineTo(this.x + this.width, this.y + this.height); // Bottom right
+        context.closePath();
+        context.fill();
+        context.stroke();
+      }
+      
+      // If this is the active shape, draw resize handles
+      if (this === activeShape) {
+        const corners = this.getCorners();
+        for (const corner of corners) {
+          context.fillStyle = this.borderColor;
+          context.beginPath();
+          context.arc(corner.x, corner.y, 5, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+      
+      context.restore();
+    }
+    
+    // Resize the shape based on a drag operation
+    resize(cornerIndex, newX, newY) {
+      if (this.type === 'square') {
+        switch (cornerIndex) {
+          case 0: // Top-left
+            const width = this.x + this.width - newX;
+            const height = this.y + this.height - newY;
+            if (width > 20 && height > 20) {
+              this.width = width;
+              this.height = height;
+              this.x = newX;
+              this.y = newY;
+            }
+            break;
+          case 1: // Top-right
+            const heightTR = this.y + this.height - newY;
+            if (newX - this.x > 20 && heightTR > 20) {
+              this.width = newX - this.x;
+              this.height = heightTR;
+              this.y = newY;
+            }
+            break;
+          case 2: // Bottom-right
+            if (newX - this.x > 20 && newY - this.y > 20) {
+              this.width = newX - this.x;
+              this.height = newY - this.y;
+            }
+            break;
+          case 3: // Bottom-left
+            const widthBL = this.x + this.width - newX;
+            if (widthBL > 20 && newY - this.y > 20) {
+              this.width = widthBL;
+              this.x = newX;
+              this.height = newY - this.y;
+            }
+            break;
+        }
+      }
+      else if (this.type === 'circle') {
+        // Resize the circle based on cardinal points
+        switch (cornerIndex) {
+          case 0: // Left handle
+            const widthL = this.x + this.width - newX;
+            if (widthL > 20) {
+              this.width = widthL;
+              this.x = newX;
+            }
+            break;
+          case 1: // Right handle
+            if (newX - this.x > 20) {
+              this.width = newX - this.x;
+            }
+            break;
+          case 2: // Top handle
+            const heightT = this.y + this.height - newY;
+            if (heightT > 20) {
+              this.height = heightT;
+              this.y = newY;
+            }
+            break;
+          case 3: // Bottom handle
+            if (newY - this.y > 20) {
+              this.height = newY - this.y;
+            }
+            break;
+        }
+      }
+      else if (this.type === 'triangle') {
+        // Resize triangle based on its three points
+        switch (cornerIndex) {
+          case 0: // Top point - affects width and height proportionally
+            if (newY < this.y + this.height - 20) {
+              const ratio = this.width / this.height;
+              const newHeight = this.y + this.height - newY;
+              this.y = newY;
+              this.height = newHeight;
+              this.width = newHeight * ratio;
+              this.x = this.x + (this.width - (newHeight * ratio)) / 2;
+            }
+            break;
+          case 1: // Bottom-left point
+            if (this.x + this.width - newX > 20) {
+              this.width = this.x + this.width - newX;
+              this.x = newX;
+            }
+            break;
+          case 2: // Bottom-right point
+            if (newX - this.x > 20) {
+              this.width = newX - this.x;
+            }
+            break;
+        }
+      }
+    }
+    
+    // Move the shape
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+    }
+  }
+  
+  // Function to handle creating a new shape
+  function createShape(type, x, y) {
+    // Default size for new shapes
+    const defaultSize = 100;
+    
+    // Create a new shape with current color
+    const newShape = new Shape(
+      type,
+      x - defaultSize / 2,
+      y - defaultSize / 2,
+      defaultSize,
+      defaultSize,
+      currentColor
+    );
+    
+    // Add to shapes array
+    shapes.push(newShape);
+    
+    // Make it the active shape and NOT finalized yet
+    // so the user can resize/move it immediately
+    activeShape = newShape;
+    
+    // Add to undo stack
+    paths.push({
+      isShape: true,
+      shapeId: newShape.id,
+      action: 'add'
+    });
+    
+    // Update undo button state
+    undoBtn.classList.add('active');
+    
+    // Mark as drawing changed for prediction
+    drawingChanged = true;
+    
+    // Automatically deactivate the shape tool after placing a shape
+    isCreatingShape = false;
+    selectedShapeType = null;
+    
+    // Remove active class from all shape buttons
+    squareBtn.classList.remove('active-eraser');
+    circleBtn.classList.remove('active-eraser');
+    triangleBtn.classList.remove('active-eraser');
+    
+    // Redraw to show the new shape with its resize handles
+    redraw();
+    
+    return newShape;
+  }
+  
+  // Function to find a shape at a specific position
+  function findShapeAt(x, y) {
+    // Check in reverse order to get the topmost shape
+    // Only return shapes that haven't been finalized
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      if (!shapes[i].finalized && shapes[i].contains(x, y)) {
+        return shapes[i];
+      }
+    }
+    return null;
+  }
+  
+  // Initialize shape tool buttons
+  function initShapeTools() {
+    // Set up shape buttons
+    squareBtn.addEventListener('click', () => {
+      // If already selected, deselect
+      if (selectedShapeType === 'square') {
+        selectedShapeType = null;
+        squareBtn.classList.remove('active');
+        squareBtn.classList.remove('active-eraser');
+        isCreatingShape = false;
+      } else {
+        // Deactivate other shape buttons
+        circleBtn.classList.remove('active');
+        circleBtn.classList.remove('active-eraser');
+        triangleBtn.classList.remove('active');
+        triangleBtn.classList.remove('active-eraser');
+        // Activate square button
+        squareBtn.classList.add('active-eraser');
+        selectedShapeType = 'square';
+        isCreatingShape = true;
+        // Exit other modes
+        isErasing = false;
+        eraserBtn.classList.remove('active-eraser');
+      }
+      
+      // We don't deselect the active shape when switching tools
+      // This allows returning to edit shapes after drawing
+    });
+    
+    circleBtn.addEventListener('click', () => {
+      if (selectedShapeType === 'circle') {
+        selectedShapeType = null;
+        circleBtn.classList.remove('active');
+        circleBtn.classList.remove('active-eraser');
+        isCreatingShape = false;
+      } else {
+        squareBtn.classList.remove('active');
+        squareBtn.classList.remove('active-eraser');
+        triangleBtn.classList.remove('active');
+        triangleBtn.classList.remove('active-eraser');
+        circleBtn.classList.add('active-eraser');
+        selectedShapeType = 'circle';
+        isCreatingShape = true;
+        // Exit other modes
+        isErasing = false;
+        eraserBtn.classList.remove('active-eraser');
+      }
+      
+      // We don't deselect the active shape when switching tools
+    });
+    
+    triangleBtn.addEventListener('click', () => {
+      if (selectedShapeType === 'triangle') {
+        selectedShapeType = null;
+        triangleBtn.classList.remove('active');
+        triangleBtn.classList.remove('active-eraser');
+        isCreatingShape = false;
+      } else {
+        squareBtn.classList.remove('active');
+        squareBtn.classList.remove('active-eraser');
+        circleBtn.classList.remove('active');
+        circleBtn.classList.remove('active-eraser');
+        triangleBtn.classList.add('active-eraser');
+        selectedShapeType = 'triangle';
+        isCreatingShape = true;
+        // Exit other modes
+        isErasing = false;
+        eraserBtn.classList.remove('active-eraser');
+      }
+      
+      // We don't deselect the active shape when switching tools
+    });
   }
 
   /**
@@ -696,9 +1219,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isErasing) {
       eraserBtn.classList.add('active-eraser');
       eraserBtn.classList.remove('active');
+      
+      // Exit shape creation mode but keep active shape selected
+      isCreatingShape = false;
+      selectedShapeType = null;
+      squareBtn.classList.remove('active');
+      circleBtn.classList.remove('active');
+      triangleBtn.classList.remove('active');
     } else {
       eraserBtn.classList.remove('active-eraser');
     }
+    
+    // We don't deselect the active shape when switching tools
   });
 
   // Brush size slider
@@ -721,9 +1253,51 @@ document.addEventListener('DOMContentLoaded', () => {
   // Undo button pops the last path, saves it to redoPaths, and redraws
   undoBtn.addEventListener('click', () => {
     if (paths.length > 0) {
-      // Standard undo for individual paths
       const removedPath = paths.pop();
-      redoPaths.push(removedPath);
+      
+      // Handle shape operations
+      if (removedPath.isShape) {
+        if (removedPath.action === 'add') {
+          // Find and remove the shape
+          const shapeIndex = shapes.findIndex(s => s.id === removedPath.shapeId);
+          if (shapeIndex !== -1) {
+            const removedShape = shapes.splice(shapeIndex, 1)[0];
+            // Save the shape data for redo
+            redoPaths.push({
+              isShape: true,
+              action: 'add',
+              shapeId: removedShape.id,
+              shapeData: removedShape
+            });
+            
+            // If the active shape was removed, deselect it
+            if (activeShape && activeShape.id === removedPath.shapeId) {
+              activeShape = null;
+            }
+          }
+        }
+        else if (removedPath.action === 'modify') {
+          // For now, we don't have a sophisticated way to undo modifications
+          // Just store the action for redo
+          redoPaths.push(removedPath);
+        }
+        else if (removedPath.action === 'delete') {
+          // Restore a deleted shape
+          if (removedPath.shapeData) {
+            shapes.push(removedPath.shapeData);
+            redoPaths.push({
+              isShape: true,
+              action: 'delete',
+              shapeId: removedPath.shapeData.id
+            });
+          }
+        }
+      }
+      else {
+        // Standard undo for individual drawing paths
+        redoPaths.push(removedPath);
+      }
+      
       redraw();
     } else {
       // Check if the last redo operation is a full canvas restore (after clear)
@@ -731,6 +1305,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (lastRedo && lastRedo.isFullCanvas && lastRedo.paths) {
         // Restore the full canvas
         paths = [...lastRedo.paths];
+        
+        // Also restore shapes if they were stored
+        if (lastRedo.shapes) {
+          shapes = [...lastRedo.shapes];
+        }
+        
         redoPaths.pop();
         redraw();
       }
@@ -746,10 +1326,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (redoPaths.length > 0) {
       const pathToRestore = redoPaths.pop();
       
+      // Handle shape operations
+      if (pathToRestore.isShape) {
+        if (pathToRestore.action === 'add' && pathToRestore.shapeData) {
+          // Restore the shape
+          shapes.push(pathToRestore.shapeData);
+          paths.push({
+            isShape: true,
+            action: 'add',
+            shapeId: pathToRestore.shapeData.id
+          });
+        }
+        else if (pathToRestore.action === 'modify') {
+          // For now, we don't have a sophisticated way to redo modifications
+          // Just store the action for undo
+          paths.push(pathToRestore);
+        }
+        else if (pathToRestore.action === 'delete') {
+          // Re-delete the shape
+          const shapeIndex = shapes.findIndex(s => s.id === pathToRestore.shapeId);
+          if (shapeIndex !== -1) {
+            const removedShape = shapes.splice(shapeIndex, 1)[0];
+            paths.push({
+              isShape: true,
+              action: 'delete',
+              shapeId: removedShape.id,
+              shapeData: removedShape
+            });
+          }
+        }
+      }
       // Check if it's a full canvas restore (after clear)
-      if (pathToRestore.isFullCanvas && pathToRestore.paths) {
+      else if (pathToRestore.isFullCanvas && pathToRestore.paths) {
         paths = [...pathToRestore.paths];
-      } else {
+        
+        // Also restore shapes if they were stored
+        if (pathToRestore.shapes) {
+          shapes = [...pathToRestore.shapes];
+        }
+      } 
+      else {
+        // Standard redo for individual drawing paths
         paths.push(pathToRestore);
       }
       
@@ -766,19 +1383,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // Clear Canvas button clears all paths and redraws an empty canvas
   const clearCanvasBtn = document.getElementById('clearCanvasBtn');
   clearCanvasBtn.addEventListener('click', () => {
-    // Save current paths for undo functionality if there are any
-    if (paths.length > 0) {
-      // Save all current paths as one undo step
+    // Save current paths and shapes for undo functionality if there are any
+    if (paths.length > 0 || shapes.length > 0) {
+      // Save all current paths and shapes as one undo step
       redoPaths.push({
         isFullCanvas: true,
-        paths: [...paths]
+        paths: [...paths],
+        shapes: [...shapes]
       });
       // Update redo button visual state
       redoBtn.classList.add('active');
     }
     
-    // Clear all paths - always do this regardless of whether paths exist
+    // Clear all paths and shapes
     paths = [];
+    shapes = [];
+    activeShape = null;
     
     // Redraw empty canvas - always clear the canvas
     ctx.fillStyle = '#ffffff';
