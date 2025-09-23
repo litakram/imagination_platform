@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plateforme d'Imagination</title>
   <link rel="stylesheet" href="style.css">
-  <script src="color-picker.js"></script>
-  <script src="script.js"></script>
   <script>
     // Fix for 100vh in mobile browsers
     function setVH() {
@@ -20,252 +18,240 @@
     // Update the vh variable on resize and orientation change
     window.addEventListener('resize', setVH);
     window.addEventListener('orientationchange', setVH);
+    
+    // Function to launch the main application
+    function launchMainApplication() {
+      window.location.href = 'app.html';
+    }
   </script>
+  <style>
+    /* Start screen specific styles */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      background-color: #EDBF0D; /* Fallback background color */
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+    
+    .centered {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: calc(var(--vh, 1vh) * 100);
+      background-image: url('bacground.svg') !important;
+      background-size: cover !important;
+      background-position: center center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+     .logo-container {
+      width: 100%;
+    }
+    
+    .container {
+      width: 100%;
+      margin: 30px 0;
+      margin-left: 30px;
+      margin-right: 30px;
+      background: #EDBF0D;
+      border-radius: 16px;
+      box-shadow: none;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .big-logo {
+      max-width: 55%;
+      height: auto;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+    
+    
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 15px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .showcase-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 15px;
+    }
+    
+    .showcase-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .showcase-image {
+      width: 200px;
+      height: 200px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .robot-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    
+    .transformation-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+    }
+    
+    .arrow-icon {
+      font-size: 2rem;
+      color: white;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+    
+    .showcase-description {
+      font-size: 1.2rem;
+      line-height: 1.6;
+      margin: 30px 0;
+    }
+    
+    .highlight-text {
+      background: linear-gradient(90deg, #ff69b4, #ff8e7f);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      font-weight: bold;
+    }
+    
+    .cta-container {
+      margin-top: 40px;
+      position: relative;
+    }
+    
+    .tap-instruction {
+      font-size: 1.3rem;
+      padding: 10px 25px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50px;
+      backdrop-filter: blur(5px);
+      animation: float 3s ease-in-out infinite;
+      cursor: pointer;
+      width: 80%;
+      text-align: center;
+      margin: 0 auto;
+      display: block;
+    }
+    @keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0); }
+}
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    .sparkle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background-color: white;
+      border-radius: 50%;
+      filter: blur(1px);
+      opacity: 0;
+      animation: sparkle-animation 3s infinite;
+      pointer-events: none;
+    }
+    
+    .sparkle1 { top: -20px; left: 30px; animation-delay: 0s; }
+    .sparkle2 { top: 20px; right: 20px; animation-delay: 1s; }
+    .sparkle3 { bottom: -10px; left: 50px; animation-delay: 2s; }
+    
+    @keyframes sparkle-animation {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(0); opacity: 0; }
+    }
+    
+    /* Group 4 SVG styling */
+    .group-4-container {
+      margin-top: 30px;
+      max-width: 85%;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .group-4-image {
+      max-width: 70px;
+      height: auto;
+      margin: 0 auto;
+      display: block;
+      filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.2));
+    }
+
+    /* Make entire screen clickable */
+    #startScreen {
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
   <!-- Start screen with hook text -->
-  <div id="startScreen" class="centered">
+  <div id="startScreen" class="centered" onclick="launchMainApplication()">
+    <div class="container">
+      <div class="logo-container">
+        <img src="aiwaw.svg" alt="AIWAW Logo" class="big-logo">
+      </div>
+      
     <h1>Donnez vie à votre imagination</h1>
     <div class="showcase-container">
       <div class="showcase-item">
         <div class="showcase-image sketch">
-          <img src="ChatGPT Image 8 sept. 2025, 12_07_33.png" alt="Croquis robot" class="robot-image" >
+          <img src="ChatGPT Image 8 sept. 2025, 12_07_33.png" alt="Croquis robot" class="robot-image">
         </div>
         <div class="transformation-arrow">
           <div class="arrow-icon">→</div>
         </div>
         <div class="showcase-image result">
-          <img src="Generated Image September 04, 2025 - 7_06PM 1.png" alt="Image générée" class="robot-image" >
+          <img src="Generated Image September 04, 2025 - 7_06PM 1.png" alt="Image générée" class="robot-image">
         </div>
       </div>
-      <p class="showcase-description">Dessinez un simple croquis et notre IA le transformera en une œuvre d'art époustouflante en quelques secondes. <span class="highlight-text">Aucune compétence artistique requise!</span></p>
     </div>
     <div class="cta-container">
-        <div class="sparkle sparkle1"></div>
-        <div class="sparkle sparkle2"></div>
-        <div class="sparkle sparkle3"></div>
-        <p class="tap-instruction">Tapez pour commencer votre chef-d'œuvre</p>
-      </div>
-  </div>
-
-  <!-- Main application container; hidden until user clicks start screen -->
-  <div id="app" class="hidden">
-    <!-- Drawing canvas covering the entire background -->
-    <canvas id="drawingCanvas"></canvas>
-
-    <!-- Top prompt container (appears every few seconds with a question) -->
-    <div id="topPrompt" class="prompt hidden">
-      <div id="promptText"></div>
-      <div class="progressBar"><div class="progress"></div></div>
-      <div class="promptButtons">
-        <button id="yesBtn" class="promptBtn">Oui</button>
-        <button id="noBtn" class="promptBtn">Non</button>
-      </div>
-    </div>
-
-    <!-- Side panel with tools -->
-  <div id="sidePanel">
-      <div class="toolBar">
-        <button id="eraserBtn" class="toolButton" title="Gomme">🧽</button>
-        <div id="sizeSliderContainer" title="Taille du pinceau">
-          <input type="range" min="2" max="40" value="4" id="sizeSlider">
-        </div>
-        <div id="colorPicker" title="Couleurs">
-          <div id="currentColor" class="colorDisplay"></div>
-          <div id="colorMenu" class="colorMenu hidden"></div>
-        </div>
-        <button id="undoBtn" class="toolButton" title="Annuler">↶</button>
-        <button id="redoBtn" class="toolButton" title="Rétablir">↷</button>
-        <button id="clearCanvasBtn" class="toolButton" title="Effacer le Canvas">🗑️</button>
-        
-        <!-- Divider for shape tools -->
-        <div class="panel-divider"></div>
-        
-        <!-- Shape tools -->
-        <button id="squareBtn" class="toolButton shapeBtn" title="Carré">⬛</button>
-        <button id="circleBtn" class="toolButton shapeBtn" title="Cercle">⚪</button>
-        <button id="triangleBtn" class="toolButton shapeBtn" title="Triangle">▲</button>
-        <button id="lineBtn" class="toolButton shapeBtn" title="Ligne">━</button>
-        
-        <!-- Divider for bottom panel buttons -->
-        <div class="panel-divider"></div>
-        
-        <!-- Important sketches button -->
-        <button id="importantSketchesBtn" class="toolButton" title="Croquis Importants">📁</button>
-      </div>
-    </div>
-
-    <!-- Bottom panel with style carousel and generate button -->
-    <div id="bottomPanel">
-      <div class="bottom-content">
-        <div class="prompt-container">
-          <label for="personalPrompt" class="prompt-label">Ajoutez votre touche personnelle à votre imagination</label>
-          <textarea id="personalPrompt" class="personal-prompt" placeholder="Entrez votre instruction personnalisée ici..."></textarea>
-        </div>
-        <div id="styleCarousel"></div>
-        <button id="generateBtn" class="generateBtn">Générer</button>
-      </div>
-    </div>
-
-    <!-- Loader overlay shown during API calls -->
-    <div id="loader" class="overlay hidden">
-      <div class="spinner"></div>
-      <p class="loaderText">Traitement de votre image…</p>
-    </div>
-
-    <!-- Result container shown after generating the final image -->
-    <div id="resultContainer" class="overlay hidden">
-      <img id="resultImage" alt="Generated image" class="resultImage">
-      <button id="backBtn" class="backBtn">Retour au dessin</button>
-    </div>
-  </div>
-
-  <!-- Important Sketches Section -->
-  <div id="importantSketchesSection" class="overlay hidden">
-    <div class="sketches-container">
-      <h2 style="margin-top: 0; color: var(--text-dark); font-size: 1.75rem; border-bottom: 2px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">Croquis Importants</h2>
-      <div class="sketches-controls" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-        <input type="file" id="sketchUpload" accept="image/*" multiple>
-        <label for="sketchUpload" class="upload-btn">Importer Croquis</label>
-        <button id="closeSketchesBtn" class="close-btn">Fermer</button>
-      </div>
-      <div id="sketchesGallery" class="sketches-gallery">
-        <!-- Sketches will be displayed here -->
+      <div class="sparkle sparkle1"></div>
+      <div class="sparkle sparkle2"></div>
+      <div class="sparkle sparkle3"></div>
+      <p class="tap-instruction">Tapez pour commencer votre chef-d'œuvre</p>
+      <div class="group-4-container">
+        <img src="Group 4.svg" alt="Logo design" class="group-4-image">
       </div>
     </div>
   </div>
-
-  
-  <!-- Add CSS for the new elements -->
-  <style>
-/* Important Sketches Section */
-.sketches-container {
-  background-color: white;
-  border-radius: 12px;
-  max-width: 90%;
-  max-height: 80%;
-  padding: 24px;
-  overflow-y: auto;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(65, 105, 225, 0.1);
-}    .sketches-gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 15px;
-      margin-top: 15px;
-    }
-    
-    .sketch-item {
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 8px;
-      text-align: center;
-      position: relative;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease;
-      background: white;
-    }
-    
-    .sketch-item:hover {
-      box-shadow: 0 4px 12px rgba(65, 105, 225, 0.15);
-      border-color: rgba(65, 105, 225, 0.3);
-      transform: translateY(-2px);
-    }
-    
-    .sketch-item img {
-      max-width: 100%;
-      max-height: 150px;
-      object-fit: contain;
-    }
-    
-    .sketch-item .delete-btn {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: linear-gradient(135deg, #ff4d4d 0%, #ff69b4 100%);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      font-size: 12px;
-      cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-      transition: all 0.2s ease;
-    }
-    
-    .sketch-item .delete-btn:hover {
-      background: linear-gradient(135deg, #ff3333 0%, #ff4dab 100%);
-      transform: scale(1.1);
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
-    }
-    
-    .upload-btn {
-      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
-      color: white;
-      padding: 8px 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      display: inline-block;
-      margin-right: 10px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      transition: all 0.3s ease;
-    }
-    
-    .upload-btn:hover {
-      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-    }
-    
-    input[type="file"] {
-      display: none;
-    }
-    
-    .close-btn {
-      background: linear-gradient(135deg, #ff4d4d 0%, #ff69b4 100%); /* Redder gradient for close button */
-      color: white;
-      padding: 8px 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      transition: all 0.3s ease;
-    }
-    
-    .close-btn:hover {
-      background: linear-gradient(135deg, #ff3333 0%, #ff4dab 100%);
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Panel divider */
-    .panel-divider {
-      height: 2px;
-      background: linear-gradient(90deg, rgba(65, 105, 225, 0.3) 0%, rgba(255, 105, 180, 0.3) 100%);
-      margin: 15px 0;
-      width: 90%;
-      border-radius: 1px;
-    }
-    
-    /* Active state for buttons - using gradient to match overall theme */
-    .toolButton.active {
-      background: linear-gradient(135deg, #7460C4 0%, #381978 100%); /* Reversed gradient */
-      color: white;
-      box-shadow: 0 4px 10px rgba(255, 105, 180, 0.4);
-    }
-    
-    /* Global interactive element enhancements */
-    button, .toolButton, .promptBtn, .backBtn, .generateBtn, .upload-btn, .close-btn {
-      transition: all 0.3s ease;
-    }
-
-    button:hover, .toolButton:hover, .promptBtn:hover, .backBtn:hover, .generateBtn:hover, .upload-btn:hover {
-      transform: translateY(-2px);
-    }
-
-    button:active, .toolButton:active, .promptBtn:active, .backBtn:active, .generateBtn:active, .upload-btn:active, .close-btn:active {
-      transform: translateY(1px);
-    }
-  </style>
+  </div>
 </body>
 </html>

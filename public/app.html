@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plateforme d'Imagination - Application</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="color-picker.js"></script>
+  <script src="script.js"></script>
+  <script>
+    // Fix for 100vh in mobile browsers
+    function setVH() {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    
+    // Set the vh variable on page load
+    window.addEventListener('load', setVH);
+    
+    // Update the vh variable on resize and orientation change
+    window.addEventListener('resize', setVH);
+    window.addEventListener('orientationchange', setVH);
+    
+    // When the page loads, make sure the app is visible
+    window.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('app').classList.remove('hidden');
+    });
+  </script>
+</head>
+<body>
+  <!-- Main application container -->
+  <div id="app">
+    <!-- Drawing canvas covering the entire background -->
+    <canvas id="drawingCanvas"></canvas>
+
+    <!-- Top prompt container (appears every few seconds with a question) -->
+    <div id="topPrompt" class="prompt hidden">
+      <div id="promptText"></div>
+      <div class="progressBar"><div class="progress"></div></div>
+      <div class="promptButtons">
+        <button id="yesBtn" class="promptBtn">Oui</button>
+        <button id="noBtn" class="promptBtn">Non</button>
+      </div>
+    </div>
+
+    <!-- Side panel with tools -->
+    <div id="sidePanel">
+      <div class="toolBar">
+        <button id="eraserBtn" class="toolButton" title="Gomme">🧽</button>
+        <div id="sizeSliderContainer" title="Taille du pinceau">
+          <input type="range" min="2" max="40" value="4" id="sizeSlider">
+        </div>
+        <div id="colorPicker" title="Couleurs">
+          <div id="currentColor" class="colorDisplay"></div>
+          <div id="colorMenu" class="colorMenu hidden"></div>
+        </div>
+        <button id="undoBtn" class="toolButton" title="Annuler">↶</button>
+        <button id="redoBtn" class="toolButton" title="Rétablir">↷</button>
+        <button id="clearCanvasBtn" class="toolButton" title="Effacer le Canvas">🗑️</button>
+        
+        <!-- Divider for shape tools -->
+        <div class="panel-divider"></div>
+        
+        <!-- Shape tools -->
+        <button id="squareBtn" class="toolButton shapeBtn" title="Carré">⬛</button>
+        <button id="circleBtn" class="toolButton shapeBtn" title="Cercle">⚪</button>
+        <button id="triangleBtn" class="toolButton shapeBtn" title="Triangle">▲</button>
+        <button id="lineBtn" class="toolButton shapeBtn" title="Ligne">━</button>
+        
+        <!-- Divider for bottom panel buttons -->
+        <div class="panel-divider"></div>
+        
+        <!-- Important sketches button -->
+        <button id="importantSketchesBtn" class="toolButton" title="Croquis Importants">📁</button>
+      </div>
+    </div>
+
+    <!-- Bottom panel with style carousel and generate button -->
+    <div id="bottomPanel">
+      <div class="bottom-content">
+        <div class="prompt-container">
+          <label for="personalPrompt" class="prompt-label">Ajoutez votre touche personnelle à votre imagination</label>
+          <textarea id="personalPrompt" class="personal-prompt" placeholder="Entrez votre instruction personnalisée ici..."></textarea>
+        </div>
+        <div id="styleCarousel"></div>
+        <button id="generateBtn" class="generateBtn">Générer</button>
+      </div>
+    </div>
+
+    <!-- Loader overlay shown during API calls -->
+    <div id="loader" class="overlay hidden">
+      <div class="spinner"></div>
+      <p class="loaderText">Traitement de votre image…</p>
+    </div>
+
+    <!-- Result container shown after generating the final image -->
+    <div id="resultContainer" class="overlay hidden">
+      <img id="resultImage" alt="Generated image" class="resultImage">
+      <button id="backBtn" class="backBtn">Retour au dessin</button>
+    </div>
+  </div>
+
+  <!-- Important Sketches Section -->
+  <div id="importantSketchesSection" class="overlay hidden">
+    <div class="sketches-container">
+      <h2 style="margin-top: 0; color: var(--text-dark); font-size: 1.75rem; border-bottom: 2px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">Croquis Importants</h2>
+      <div class="sketches-controls" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+        <input type="file" id="sketchUpload" accept="image/*" multiple>
+        <label for="sketchUpload" class="upload-btn">Importer Croquis</label>
+        <button id="closeSketchesBtn" class="close-btn">Fermer</button>
+      </div>
+      <div id="sketchesGallery" class="sketches-gallery">
+        <!-- Sketches will be displayed here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Add CSS for the new elements -->
+  <style>
+    /* Important Sketches Section */
+    .sketches-container {
+      background-color: white;
+      border-radius: 12px;
+      max-width: 90%;
+      max-height: 80%;
+      padding: 24px;
+      overflow-y: auto;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(65, 105, 225, 0.1);
+    }
+    
+    .sketches-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    .sketch-item {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      background: white;
+    }
+    
+    .sketch-item:hover {
+      box-shadow: 0 4px 12px rgba(65, 105, 225, 0.15);
+      border-color: rgba(65, 105, 225, 0.3);
+      transform: translateY(-2px);
+    }
+    
+    .sketch-item img {
+      max-width: 100%;
+      max-height: 150px;
+      object-fit: contain;
+    }
+    
+    .sketch-item .delete-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: linear-gradient(135deg, #ff4d4d 0%, #ff69b4 100%);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+    
+    .sketch-item .delete-btn:hover {
+      background: linear-gradient(135deg, #ff3333 0%, #ff4dab 100%);
+      transform: scale(1.1);
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
+    }
+    
+    .upload-btn {
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+      color: white;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-block;
+      margin-right: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      transition: all 0.3s ease;
+    }
+    
+    .upload-btn:hover {
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    input[type="file"] {
+      display: none;
+    }
+    
+    .close-btn {
+      background: linear-gradient(135deg, #ff4d4d 0%, #ff69b4 100%); /* Redder gradient for close button */
+      color: white;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      transition: all 0.3s ease;
+    }
+    
+    .close-btn:hover {
+      background: linear-gradient(135deg, #ff3333 0%, #ff4dab 100%);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Panel divider */
+    .panel-divider {
+      height: 2px;
+      background: linear-gradient(90deg, rgba(65, 105, 225, 0.3) 0%, rgba(255, 105, 180, 0.3) 100%);
+      margin: 15px 0;
+      width: 90%;
+      border-radius: 1px;
+    }
+    
+    /* Active state for buttons - using gradient to match overall theme */
+    .toolButton.active {
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%); /* Reversed gradient */
+      color: white;
+      box-shadow: 0 4px 10px rgba(255, 105, 180, 0.4);
+    }
+    
+    /* Global interactive element enhancements */
+    button, .toolButton, .promptBtn, .backBtn, .generateBtn, .upload-btn, .close-btn {
+      transition: all 0.3s ease;
+    }
+
+    button:hover, .toolButton:hover, .promptBtn:hover, .backBtn:hover, .generateBtn:hover, .upload-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    button:active, .toolButton:active, .promptBtn:active, .backBtn:active, .generateBtn:active, .upload-btn:active, .close-btn:active {
+      transform: translateY(1px);
+    }
+  </style>
+</body>
+</html>

@@ -8,7 +8,6 @@
 // fetch() requests.
 
 document.addEventListener('DOMContentLoaded', () => {
-  const startScreen = document.getElementById('startScreen');
   const app = document.getElementById('app');
   const canvas = document.getElementById('drawingCanvas');
   const ctx = canvas.getContext('2d');
@@ -1638,15 +1637,11 @@ document.addEventListener('DOMContentLoaded', () => {
     resultContainer.classList.add('hidden');
   }
 
-  // Event handler: start the app when the user clicks the start screen
-  startScreen.addEventListener('click', () => {
-    startScreen.classList.add('hidden');
-    app.classList.remove('hidden');
-    initCanvas();
-    initColourMenu();
-    initStyleCarousel();
-    startPredictionLoop();
-  });
+  // Initialize the app when the page loads (since we're now on the app.html page)
+  initCanvas();
+  initColourMenu();
+  initStyleCarousel();
+  startPredictionLoop();
 
 
 

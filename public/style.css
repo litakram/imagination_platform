@@ -44,13 +44,18 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  background: linear-gradient( #a995ce 0%, #fdcd84 75%, #ffa565df 100%);
+  background-color: #EDBF0D; /* Fallback background color */
   cursor: pointer;
   z-index: 100;
   overflow-y: auto; /* Enable scrolling if needed */
   overflow-x: hidden;
   padding: 0 1rem;
   box-sizing: border-box;
+  background-image: url('bacground.svg') !important;
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
 }
 #startScreen h1 {
   margin: 0;
@@ -133,6 +138,15 @@ html, body {
 
 /* Media query for portrait screens */
 @media (max-width: 768px), (orientation: portrait) {
+  #startScreen, .centered-horizontal, .centered {
+    background-attachment: fixed !important;
+    background-size: cover !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+    height: 100% !important;
+    min-height: 100vh !important;
+    min-height: calc(var(--vh, 1vh) * 100) !important;
+  }
   .showcase-item {
     flex-direction: column;
     padding: 1rem;
@@ -194,18 +208,18 @@ html, body {
 }
 
 .tap-instruction {
-  color: white;
+  color: rgb(0, 0, 0);
   font-size: 1.2rem;
   font-weight: 600;
   text-align: center;
   margin: 0;
   padding: 0.8rem 1.5rem;
-  background: linear-gradient(90deg, #381A7A 0%,  #9D8FBCCF 100%);
+  background: white;
   border-radius: 50px;
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid #381A7A;
   cursor: pointer;
 }
 

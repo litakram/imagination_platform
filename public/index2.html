@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plateforme d'Imagination - Contrôleur</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Fix for 100vh in mobile browsers
+    function setVH() {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    
+    // Set the vh variable on page load
+    window.addEventListener('load', setVH);
+    
+    // Update the vh variable on resize and orientation change
+    window.addEventListener('resize', setVH);
+    window.addEventListener('orientationchange', setVH);
+    
+    // Function to launch the main application
+    function launchMainApplication() {
+      window.location.href = 'app.html';
+    }
+  </script>
+  <style>
+    /* Start screen specific styles */
+    @font-face {
+  font-family: 'Mikado';
+  src: url('fonts/Mikado-Bold-DEMO.woff2') format('woff2'),
+       url('fonts/Mikado-Bold-DEMO.woff') format('woff'),
+       url('fonts/Mikado-Bold-DEMO.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      background-color: #EDBF0D; /* Fallback background color */
+    }
+    
+    .centered-horizontal {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 100vh;
+      min-height: calc(var(--vh, 1vh) * 100);
+      background-image: url('bacground.svg') !important;
+      background-size: cover !important;
+      background-position: center center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .left-section {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      text-align: left;
+      max-width: 60%;
+    }
+    
+    .right-section {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 20px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .logo-container {
+      width: 100%;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    
+    .big-logo {
+      max-width: 80%;
+      height: auto;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+    
+    .description {
+      font-size: 1.8rem;
+      line-height: 1.5;
+      margin: 25px 0 37px 30px;
+      max-width: 600px;
+      position: relative;
+      color: #000000;
+      font-weight: 700;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      font-family: 'Mikado', sans-serif;
+      letter-spacing: 0.02em;
+    }
+    
+    .highlight-text {
+      background: black;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+     }
+    
+    .start-button-container {
+      margin-top: 40px;
+      position: relative;
+    }
+    
+    .start-button {
+      font-size: 1.5rem;
+      padding: 20px 40px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50px;
+      backdrop-filter: blur(5px);
+      animation: pulse 2s infinite;
+      cursor: pointer;
+      display: inline-block;
+      border: none;
+      color: white;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .start-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    .sparkle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background-color: white;
+      border-radius: 50%;
+      filter: blur(1px);
+      opacity: 0;
+      animation: sparkle-animation 3s infinite;
+      pointer-events: none;
+    }
+    
+    .sparkle1 { top: -20px; left: 30px; animation-delay: 0s; }
+    .sparkle2 { top: 20px; right: 20px; animation-delay: 1s; }
+    .sparkle3 { bottom: -10px; left: 50px; animation-delay: 2s; }
+    
+    @keyframes sparkle-animation {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(0); opacity: 0; }
+    }
+    
+    .control-circle {
+      width: 200px;
+      height: 200px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(5px);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: float 3s ease-in-out infinite;
+      position: relative;
+      cursor: pointer;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2),
+                  inset 0 2px 10px rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .control-circle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3),
+                 inset 0 3px 15px rgba(255, 255, 255, 0.3);
+    }
+    
+    .control-circle:active {
+      transform: scale(0.98);
+    }
+    
+    .play-icon {
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 30px 0 30px 50px;
+      border-color: transparent transparent transparent #ffffff;
+      margin-left: 15px;
+    }
+    
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+    
+    /* Rotating light effect around the control circle */
+    .control-circle::after {
+      content: '';
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, rgba(255, 105, 180, 0.3) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 142, 127, 0.3) 100%);
+      animation: rotate 8s linear infinite;
+    }
+    
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Landscape orientation check */
+    @media (orientation: portrait) {
+      .centered-horizontal {
+        flex-direction: column;
+        background-attachment: fixed !important;
+        background-size: cover !important;
+        height: 100% !important;
+      }
+      
+      .left-section {
+        max-width: 100%;
+        text-align: center;
+        align-items: center;
+      }
+      
+      .logo-container {
+        text-align: center;
+      }
+      
+      .big-logo {
+        max-width: 90%;
+      }
+      
+      .description {
+        margin: 25px 0 37px 0;
+        text-align: center;
+      }
+      
+      .right-section {
+        margin-top: 40px;
+      }
+      
+      .orientation-warning {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+      }
+      
+      .orientation-warning p {
+        color: white;
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+      }
+      
+      .rotate-icon {
+        width: 50px;
+        height: 50px;
+        border: 3px solid white;
+        border-radius: 5px;
+        position: relative;
+        animation: rotate-device 2s infinite;
+      }
+      
+      @keyframes rotate-device {
+        0% { transform: rotate(0deg); }
+        50% { transform: rotate(-90deg); }
+        100% { transform: rotate(0deg); }
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Orientation warning for portrait mode -->
+  <div id="orientationWarning" class="orientation-warning" style="display: none;">
+    <p>Veuillez tourner votre appareil en mode paysage</p>
+    <div class="rotate-icon"></div>
+  </div>
+  
+  <!-- Horizontal start screen -->
+  <div id="startScreen" class="centered-horizontal">
+    <div class="left-section">
+      <div class="logo-container">
+        <img src="aiwaw.svg" alt="AIWAW Logo" class="big-logo">
+      </div>
+      <p class="description">
+        <span style="display: block; margin-top: 3px;">
+          🖌️Dessinez un simple croquis et notre IA le transformera en 🪄une œuvre d'art époustouflante en quelques secondes.
+        </span>
+        <br>
+        <span class="highlight-text" style="background: #fff; border: 2.5px solid #5E4087; border-radius: 8px; color: #000000; padding: 4px 14px; margin-top: 38px; display: block; text-align: center;">
+          Aucune compétence artistique requise!
+        </span>
+      </p>
+    
+      
+    </div>
+    <div class="right-section">
+      <div class="start-button-container">
+        <div class="sparkle sparkle1"></div>
+        
+        
+      <div class="control-circle" onclick="launchMainApplication()" style="background: #8e44ad;"><div class="sparkle sparkle2"></div>
+        <div class="play-icon"></div><div class="sparkle sparkle3"></div>
+      </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Check orientation and show warning in portrait mode
+    function checkOrientation() {
+      const orientationWarning = document.getElementById('orientationWarning');
+      const startScreen = document.getElementById('startScreen');
+
+      if (window.innerHeight > window.innerWidth) {
+        // Portrait mode
+        orientationWarning.style.display = 'flex';
+        startScreen.style.flexDirection = 'column';
+      } else {
+        // Landscape mode
+        orientationWarning.style.display = 'none';
+        startScreen.style.flexDirection = 'row';
+      }
+    }
+    
+    // Check orientation on load and orientation change
+    window.addEventListener('load', checkOrientation);
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+  </script>
+</body>
+</html>
