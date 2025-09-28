@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plateforme d'Imagination</title>
   <link rel="stylesheet" href="style.css">
+  <script src="websocket-client.js"></script>
   <script>
     // Fix for 100vh in mobile browsers
     function setVH() {
@@ -19,10 +20,116 @@
     window.addEventListener('resize', setVH);
     window.addEventListener('orientationchange', setVH);
     
-    // Function to launch the main application
-    function launchMainApplication() {
-      window.location.href = 'app.html';
-    }
+    // Display screen - no direct navigation function
+    // Navigation is controlled via WebSocket from controller screen
+
+    // Initialize WebSocket when page loads
+    window.addEventListener('load', () => {
+      initializeWebSocket();
+      
+      // Override wsSync methods for display-specific behavior
+      if (window.wsSync && window.wsSync.clientType === 'display') {
+        // Add visual indicator for synchronized actions
+        const style = document.createElement('style');
+        style.textContent = `
+          .sync-active {
+            animation: syncPulse 0.5s ease-in-out;
+            border: 2px solid #00ff00 !important;
+          }
+          
+          @keyframes syncPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+          }
+          
+          .sync-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 255, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            z-index: 1000;
+          }
+          
+          /* Display screen passive styling */
+          #startScreen {
+            opacity: 0.9;
+          }
+          
+          .tap-instruction {
+            opacity: 0.7;
+            cursor: default !important;
+          }
+          
+          /* Add subtle overlay to show it's display only */
+          body::before {
+            content: 'DISPLAY SCREEN - Controlled Remotely';
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 11px;
+            z-index: 1000;
+            opacity: 0.8;
+          }
+        `;
+        document.head.appendChild(style);
+        
+        // Add connection indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'sync-indicator';
+        indicator.textContent = 'Display Mode - Waiting for controller...';
+        document.body.appendChild(indicator);
+        
+        // Update indicator on connection
+        window.wsSync.onConnectionEstablished = () => {
+          indicator.textContent = 'Display Mode - Connected (No Direct Control)';
+          indicator.style.background = 'rgba(0, 255, 0, 0.8)';
+        };
+
+        // Handle return to home action
+        window.wsSync.handleSyncAction = function(action, payload) {
+          console.log('Index.html received sync action:', action);
+          if (action === 'return_to_home') {
+            console.log('Index.html: Returning to home screen');
+            // Stay on index.html as this is the display screen home
+            window.location.reload(); // Reload to reset to start screen
+          }
+        };
+
+        // Override message handler to catch return_to_home
+        const originalHandleMessage = window.wsSync.handleMessage;
+        window.wsSync.handleMessage = function(data) {
+          console.log('Index.html received WebSocket message:', data);
+          
+          if (data.type === 'sync_action' && data.action === 'return_to_home') {
+            console.log('Index.html: Home action received, reloading page');
+            window.location.reload();
+            return;
+          }
+          
+          // Call original handler for other messages
+          if (originalHandleMessage) {
+            originalHandleMessage.call(this, data);
+          }
+        };
+        
+        // Remove any click handlers from display screen
+        const startScreen = document.getElementById('startScreen');
+        if (startScreen) {
+          startScreen.style.pointerEvents = 'none';
+          startScreen.style.userSelect = 'none';
+        }
+      }
+    });
   </script>
   <style>
     /* Start screen specific styles */
@@ -214,15 +321,15 @@
       filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.2));
     }
 
-    /* Make entire screen clickable */
+    /* Display screen - no interaction */
     #startScreen {
-      cursor: pointer;
+      cursor: default;
     }
   </style>
 </head>
 <body>
-  <!-- Start screen with hook text -->
-  <div id="startScreen" class="centered" onclick="launchMainApplication()">
+  <!-- Start screen with hook text - DISPLAY ONLY -->
+  <div id="startScreen" class="centered">
     <div class="container">
       <div class="logo-container">
         <img src="aiwaw.svg" alt="AIWAW Logo" class="big-logo">

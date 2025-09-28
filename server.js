@@ -2,6 +2,8 @@ const path = require('path');
 const express = require('express');
 const fetch = require('node-fetch');
 const axios = require('axios');
+const http = require('http');
+const WebSocket = require('ws');
 let uuidv4;
 // Import the fal namespace from the client. According to the fal.ai
 // documentation the client exports an object with a `fal` property,
@@ -21,6 +23,117 @@ fal.config({
 const { subscribe } = fal;
 
 const app = express();
+const server = http.createServer(app);
+
+// WebSocket Setup
+// Store connected clients with their types
+const clients = {
+  controllers: [], // index2.html clients (21" screens)
+  displays: []     // index.html clients (vertical display screens)
+};
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+  console.log('New WebSocket connection established');
+
+  // Handle incoming messages
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      console.log('Received WebSocket message:', data);
+
+      switch (data.type) {
+        case 'register_controller':
+          // Register as controller (index2.html)
+          clients.controllers.push(ws);
+          ws.clientType = 'controller';
+          console.log(`Controller registered. Total controllers: ${clients.controllers.length}`);
+          break;
+
+        case 'register_display':
+          // Register as display (index.html)
+          clients.displays.push(ws);
+          ws.clientType = 'display';
+          console.log(`Display registered. Total displays: ${clients.displays.length}`);
+          break;
+
+        case 'controller_action':
+          // Forward controller actions to all displays
+          console.log('Broadcasting controller action to displays:', data.action);
+          broadcastToDisplays({
+            type: 'sync_action',
+            action: data.action,
+            payload: data.payload || {}
+          });
+          break;
+
+        case 'page_change':
+          // Handle page navigation
+          console.log('Broadcasting page change to displays:', data.page);
+          broadcastToDisplays({
+            type: 'sync_page_change',
+            page: data.page,
+            payload: data.payload || {}
+          });
+          break;
+
+        case 'app_start':
+          // Handle application start
+          console.log('Broadcasting app start to displays');
+          broadcastToDisplays({
+            type: 'sync_app_start',
+            payload: data.payload || {}
+          });
+          break;
+
+        default:
+          console.log('Unknown WebSocket message type:', data.type);
+      }
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  });
+
+  // Handle client disconnect
+  ws.on('close', () => {
+    console.log('WebSocket connection closed');
+    
+    // Remove from appropriate client list
+    if (ws.clientType === 'controller') {
+      clients.controllers = clients.controllers.filter(client => client !== ws);
+      console.log(`Controller disconnected. Remaining controllers: ${clients.controllers.length}`);
+    } else if (ws.clientType === 'display') {
+      clients.displays = clients.displays.filter(client => client !== ws);
+      console.log(`Display disconnected. Remaining displays: ${clients.displays.length}`);
+    }
+  });
+
+  // Send initial connection confirmation
+  ws.send(JSON.stringify({
+    type: 'connection_established',
+    message: 'WebSocket connection successful'
+  }));
+});
+
+// Function to broadcast messages to all display clients
+function broadcastToDisplays(message) {
+  clients.displays.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
+  });
+}
+
+// Function to broadcast messages to all controller clients
+function broadcastToControllers(message) {
+  clients.controllers.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
+  });
+}
 
 // Helper: BFL AI fallback
 async function generateImageWithBFL(prompt, options = {}) {
@@ -265,8 +378,8 @@ app.post('/api/predict', async (req, res) => {
  * the base64 data URL of the sketch, the chosen style (optional), and the
  * last question/answer pair (optional). The server sends a single prompt to
  * Gemini to both describe the drawing and craft an optimal prompt for the
- * image‑to‑image model. It then sends the prompt and the sketch to the Fal AI
- * flux‑pro/kontext model using the official client library and returns the result.
+ * image‑to‑image model. It then sends the prompt and the sketch to the BFL AI
+ * (Black Forest Labs) API as the primary method, with Fal AI as fallback.
  */
 app.post('/api/generate', async (req, res) => {
   try {
@@ -334,26 +447,86 @@ Format attendu :
       finalPrompt = promptLines.join(' ').trim();
     }
 
-    // Step 3: Try Fal AI, fallback to BFL AI if error or timeout (40s)
+    // Step 3: Try BFL AI first, fallback to Fal AI if error or timeout (40s)
     const dataUri = image;
     let resultImage;
-    let falError = null;
+    let bflError = null;
     let usedFallback = false;
-    const falPromise = (async () => {
+    
+    // Prepare prompt for both APIs
+    const promptToUse = finalPrompt || description || personalPrompt || 'Une image détaillée et belle';
+    
+    const bflPromise = (async () => {
       try {
-        console.log('Attempting to generate image with Fal AI...');
+        console.log('Attempting to generate image with BFL AI (primary)...');
         
-        // Check for valid API key
+        // Check for valid BFL API key
+        if (!process.env.BFL_API_KEY) {
+          console.error('BFL_API_KEY is missing in environment variables');
+          throw new Error('Missing BFL AI API key');
+        }
+        
+        // Log the input for debugging
+        console.log('BFL AI Input:', {
+          prompt: promptToUse.substring(0, 100) + '...',
+          imageProvided: !!dataUri
+        });
+        
+        // Options for BFL AI API
+        const options = {
+          width: 768,
+          height: 768,
+        };
+        
+        // If we have an image, include it as seedImage
+        if (dataUri) {
+          // For BFL, pass only the base64 part of the dataURI
+          if (dataUri.startsWith('data:')) {
+            options.seedImage = dataUri.replace(/^data:image\/\w+;base64,/, '');
+            console.log("Passing base64 to BFL (extracted from dataURI), length:", options.seedImage.length);
+          } else {
+            options.seedImage = dataUri;
+            console.log("Passing image data to BFL directly, length:", dataUri.length);
+          }
+          options.strength = 0.8;
+        }
+        
+        const bflResult = await generateImageWithBFL(promptToUse, options);
+        console.log('BFL AI succeeded:', !!bflResult);
+        return bflResult;
+      } catch (e) {
+        console.error('BFL AI error:', e.message);
+        bflError = e;
+        return null;
+      }
+    })();
+    
+    function timeoutPromise(ms) {
+      return new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), ms));
+    }
+    
+    let bflResult = await Promise.race([bflPromise, timeoutPromise(40000)]);
+    
+    if (bflResult && bflResult !== 'TIMEOUT') {
+      console.log('Successfully generated image with BFL AI (primary)');
+      resultImage = bflResult;
+    } else {
+      // Log the reason for fallback
+      console.error('BFL AI failed:', bflResult === 'TIMEOUT' ? 
+        'Request timed out after 40 seconds' : 
+        (bflError ? bflError.message : 'Unknown error'));
+      
+      // Fallback to Fal AI
+      usedFallback = true;
+      console.log('Falling back to Fal AI...');
+      try {
+        // Check for valid Fal API key
         if (!process.env.FAL_API_KEY) {
           console.error('FAL_API_KEY is missing in environment variables');
           throw new Error('Missing Fal AI API key');
         }
         
-        // Prepare prompt
-        const promptToUse = finalPrompt || description || personalPrompt || 'Une image détaillée et belle';
-        
-        // Log the input for debugging
-        console.log('Fal AI Input:', {
+        console.log('Fal AI Fallback Input:', {
           prompt: promptToUse.substring(0, 100) + '...',
           imageProvided: !!dataUri
         });
@@ -387,85 +560,65 @@ Format attendu :
         }
         
         // Debug the response
-        console.log('Fal AI Response received:', 
+        console.log('Fal AI Fallback Response received:', 
                     falResult ? 'Success' : 'Empty response',
                     falResult?.images ? `with ${falResult.images.length} images` : 'without images');
                    
         // Handle different response formats
         if (falResult?.images && falResult.images.length > 0) {
           console.log('Using falResult.images[0].url');
-          return falResult.images[0].url;
+          resultImage = falResult.images[0].url;
         } else if (falResult?.data?.images && falResult.data.images.length > 0) {
           console.log('Using falResult.data.images[0].url');
-          return falResult.data.images[0].url;
+          resultImage = falResult.data.images[0].url;
         } else if (falResult?.output) {
           console.log('Using falResult.output');
-          return falResult.output;
+          resultImage = falResult.output;
+        } else {
+          // Log full response for debugging
+          console.error('No image URL found in Fal AI response:', JSON.stringify(falResult, null, 2));
+          throw new Error('No image returned from Fal AI');
         }
         
-        // Log full response for debugging
-        console.error('No image URL found in Fal AI response:', JSON.stringify(falResult, null, 2));
-        throw new Error('No image returned from Fal AI');
-      } catch (e) {
-        console.error('Fal AI error:', e.message);
-        falError = e;
-        return null;
-      }
-    })();
-    function timeoutPromise(ms) {
-      return new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), ms));
-    }
-    let falResult = await Promise.race([falPromise, timeoutPromise(40000)]);
-    if (falResult && falResult !== 'TIMEOUT') {
-      console.log('Successfully generated image with Fal AI');
-      resultImage = falResult;
-    } else {
-      // Log the reason for fallback
-      console.error('Fal AI failed:', falResult === 'TIMEOUT' ? 
-        'Request timed out after 40 seconds' : 
-        (falError ? falError.message : 'Unknown error'));
-      
-      // Fallback to BFL AI
-      usedFallback = true;
-      console.log('Falling back to BFL AI API...');
-      try {
-        // Use the exact same prompt as for Fal AI
-        const bflPrompt = finalPrompt || description || personalPrompt || 'Une image détaillée et belle';
-        
-        // Options for BFL AI API
-        const options = {
-          width: 768,
-          height: 768,
-        };
-        
-        // Si nous avons une image, l'inclure comme seedImage
-        if (dataUri) {
-          // Pour BFL, passer uniquement la partie base64 du dataURI
-          if (dataUri.startsWith('data:')) {
-            options.seedImage = dataUri.replace(/^data:image\/\w+;base64,/, '');
-            console.log("Passing base64 to BFL (extracted from dataURI), length:", options.seedImage.length);
-          } else {
-            options.seedImage = dataUri;
-            console.log("Passing image data to BFL directly, length:", dataUri.length);
-          }
-          options.strength = 0.8;
-        }
-        
-        resultImage = await generateImageWithBFL(bflPrompt, options);
-      } catch (bflErr) {
-        console.error('BFL AI fallback error:', bflErr);
-        return res.status(500).json({ error: 'Both Fal AI and BFL AI failed' });
+      } catch (falErr) {
+        console.error('Fal AI fallback error:', falErr);
+        return res.status(500).json({ error: 'Both BFL AI and Fal AI failed' });
       }
     }
-    res.json({ description, prompt: finalPrompt || description, image: resultImage, fallback: usedFallback, fallbackType: usedFallback ? 'BFL AI' : 'Fal AI' });
+    
+    res.json({ 
+      description, 
+      prompt: finalPrompt || description, 
+      image: resultImage, 
+      fallback: usedFallback, 
+      fallbackType: usedFallback ? 'Fal AI' : 'BFL AI' 
+    });
   } catch (err) {
     console.error('Generate error:', err);
     res.status(500).json({ error: 'Generation failed' });
   }
 });
 
-// Start the server
+// Start the combined server
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+server.listen(port, () => {
+  console.log(`🚀 Combined Server running on http://localhost:${port}`);
+  console.log('📡 WebSocket server ready for dual-screen synchronization');
+  console.log('🎨 API endpoints available:');
+  console.log('   - POST /api/predict (sketch prediction)');
+  console.log('   - POST /api/generate (image generation)');
+  console.log('🔌 WebSocket clients:');
+  console.log('   - Controllers (index2.html): Interactive control screens');
+  console.log('   - Displays (index.html): Synchronized display screens');
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n🔄 Shutting down combined server...');
+  wss.close(() => {
+    server.close(() => {
+      console.log('✅ Server closed gracefully');
+      process.exit(0);
+    });
+  });
 });

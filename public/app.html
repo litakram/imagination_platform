@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plateforme d'Imagination - Application</title>
   <link rel="stylesheet" href="style.css">
+  <script src="websocket-client.js"></script>
   <script src="color-picker.js"></script>
   <script src="script.js"></script>
   <script>
@@ -24,7 +25,111 @@
     // When the page loads, make sure the app is visible
     window.addEventListener('DOMContentLoaded', function() {
       document.getElementById('app').classList.remove('hidden');
+      
+      // Initialize WebSocket for app synchronization
+      initializeWebSocket();
+      
+      // Setup home button immediately (don't wait for WebSocket)
+      setupHomeButton();
+      
+      // Setup app-specific WebSocket behavior
+      setTimeout(() => {
+        if (window.wsSync) {
+          // Add sync indicator for app
+          const syncIndicator = document.createElement('div');
+          syncIndicator.style.cssText = `
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 255, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            z-index: 1000;
+          `;
+          syncIndicator.textContent = window.wsSync.clientType === 'controller' ? 'App Controller Mode' : 'App Display Mode';
+          document.body.appendChild(syncIndicator);
+          
+          // If this is a controller, sync drawing actions
+          if (window.wsSync.clientType === 'controller') {
+            // Sync drawing events (this would be integrated with your existing script.js)
+            setupDrawingSynchronization();
+          }
+        }
+      }, 100);
     });
+    
+    // Function to setup drawing synchronization for controller
+    function setupDrawingSynchronization() {
+      // This function will be called to sync drawing actions
+      // Integration with existing drawing functionality would go here
+      console.log('Drawing synchronization setup for controller');
+      
+      // Example: Sync button clicks, tool changes, etc.
+      const buttons = document.querySelectorAll('.toolButton, .generateBtn');
+      buttons.forEach(button => {
+        button.addEventListener('click', (e) => {
+          if (window.wsSync) {
+            window.wsSync.sendControllerAction('tool_button_click', {
+              buttonId: button.id,
+              buttonClass: button.className,
+              timestamp: Date.now()
+            });
+          }
+        });
+      });
+      
+      // Home button is handled separately in setupHomeButton()
+    }
+
+    // Setup home button (independent of WebSocket)
+    function setupHomeButton() {
+      const homeBtn = document.getElementById('homeBtn');
+      if (homeBtn) {
+        console.log('Home button found, setting up click handler');
+        homeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          console.log('Home button clicked!');
+          returnToHome();
+        });
+      } else {
+        console.log('Home button NOT found - will retry in 500ms');
+        setTimeout(setupHomeButton, 500);
+      }
+    }
+
+    // Function to return to home page
+    function returnToHome() {
+      console.log('returnToHome called');
+      
+      // Method 1: WebSocket (if available)
+      if (window.wsSync && window.wsSync.isConnected) {
+        console.log('Sending WebSocket return_to_home message');
+        window.wsSync.sendControllerAction('return_to_home', {
+          timestamp: Date.now(),
+          action: 'home_button_clicked'
+        });
+      } else {
+        console.log('WebSocket not available, proceeding without sync');
+      }
+      
+      // Method 2: localStorage communication (bulletproof fallback)
+      console.log('Setting localStorage trigger for awaiting page');
+      localStorage.setItem('returnToHome', Date.now().toString());
+      
+      // Method 3: BroadcastChannel API (modern browsers)
+      if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel('navigation');
+        channel.postMessage({ action: 'return_to_home', timestamp: Date.now() });
+        channel.close();
+        console.log('Sent BroadcastChannel message');
+      }
+      
+      // Navigate to index2.html (always, since app.html is the controller interface)
+      console.log('Navigating to index2.html');
+      window.location.href = 'index2.html';
+    }
   </script>
 </head>
 <body>
@@ -83,7 +188,10 @@
           <textarea id="personalPrompt" class="personal-prompt" placeholder="Entrez votre instruction personnalisée ici..."></textarea>
         </div>
         <div id="styleCarousel"></div>
-        <button id="generateBtn" class="generateBtn">Générer</button>
+        <div class="button-group">
+          <button id="homeBtn" class="homeBtn" title="Retour à l'accueil" onclick="returnToHome()">🏠 Accueil</button>
+          <button id="generateBtn" class="generateBtn">Générer</button>
+        </div>
       </div>
     </div>
 
@@ -245,6 +353,40 @@
     }
 
     button:active, .toolButton:active, .promptBtn:active, .backBtn:active, .generateBtn:active, .upload-btn:active, .close-btn:active {
+      transform: translateY(1px);
+    }
+
+    /* Button group styling */
+    .button-group {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Home button styling */
+    .homeBtn {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem 2rem;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+      text-transform: uppercase;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .homeBtn:hover {
+      background: linear-gradient(135deg, #ee5a24 0%, #ff6b6b 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+    }
+
+    .homeBtn:active {
       transform: translateY(1px);
     }
   </style>
