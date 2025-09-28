@@ -83,16 +83,9 @@
         `;
         document.head.appendChild(style);
         
-        // Add connection indicator
-        const indicator = document.createElement('div');
-        indicator.className = 'sync-indicator';
-        indicator.textContent = 'Display Mode - Waiting for controller...';
-        document.body.appendChild(indicator);
-        
-        // Update indicator on connection
+        // Update on connection (no visual indicator)
         window.wsSync.onConnectionEstablished = () => {
-          indicator.textContent = 'Display Mode - Connected (No Direct Control)';
-          indicator.style.background = 'rgba(0, 255, 0, 0.8)';
+          console.log('Display mode WebSocket connected');
         };
 
         // Handle return to home action

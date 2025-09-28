@@ -61,16 +61,9 @@
         `;
         document.head.appendChild(style);
         
-        // Add controller indicator
-        const indicator = document.createElement('div');
-        indicator.className = 'controller-indicator';
-        indicator.textContent = 'Controller Mode - Connecting...';
-        document.body.appendChild(indicator);
-        
-        // Update indicator on connection
+        // Update on connection (no visual indicator)
         window.wsSync.onConnectionEstablished = () => {
-          indicator.textContent = 'Controller Mode - Connected';
-          indicator.style.background = 'rgba(0, 255, 0, 0.8)';
+          console.log('Controller mode WebSocket connected');
           
           // Add visual feedback to control elements
           const controlCircle = document.querySelector('.control-circle');

@@ -35,22 +35,6 @@
       // Setup app-specific WebSocket behavior
       setTimeout(() => {
         if (window.wsSync) {
-          // Add sync indicator for app
-          const syncIndicator = document.createElement('div');
-          syncIndicator.style.cssText = `
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 255, 0.8);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 12px;
-            z-index: 1000;
-          `;
-          syncIndicator.textContent = window.wsSync.clientType === 'controller' ? 'App Controller Mode' : 'App Display Mode';
-          document.body.appendChild(syncIndicator);
-          
           // If this is a controller, sync drawing actions
           if (window.wsSync.clientType === 'controller') {
             // Sync drawing events (this would be integrated with your existing script.js)
@@ -180,15 +164,27 @@
       </div>
     </div>
 
-    <!-- Bottom panel with style carousel and generate button -->
+    <!-- Bottom panel with organized controls -->
     <div id="bottomPanel">
       <div class="bottom-content">
-        <div class="prompt-container">
-          <label for="personalPrompt" class="prompt-label">Ajoutez votre touche personnelle à votre imagination</label>
-          <textarea id="personalPrompt" class="personal-prompt" placeholder="Entrez votre instruction personnalisée ici..."></textarea>
+        <!-- Main content area -->
+        <div class="main-content-row">
+          <!-- Personal prompt section -->
+          <div class="prompt-section">
+            <div class="prompt-container">
+              <label for="personalPrompt" class="prompt-label">Ajoutez votre touche personnelle à votre imagination</label>
+              <textarea id="personalPrompt" class="personal-prompt" placeholder="Entrez votre instruction personnalisée ici..."></textarea>
+            </div>
+          </div>
+          
+          <!-- Style selection section -->
+          <div class="style-section">
+            <div id="styleCarousel"></div>
+          </div>
         </div>
-        <div id="styleCarousel"></div>
-        <div class="button-group">
+        
+        <!-- Action buttons section -->
+        <div class="action-buttons">
           <button id="homeBtn" class="homeBtn" title="Retour à l'accueil" onclick="returnToHome()">🏠 Accueil</button>
           <button id="generateBtn" class="generateBtn">Générer</button>
         </div>
@@ -356,13 +352,7 @@
       transform: translateY(1px);
     }
 
-    /* Button group styling */
-    .button-group {
-      display: flex;
-      gap: 15px;
-      align-items: center;
-      justify-content: center;
-    }
+    /* Action buttons styling - moved to main style.css */
 
     /* Home button styling */
     .homeBtn {

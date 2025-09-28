@@ -31,34 +31,9 @@
       // Setup awaiting page specific behavior
       if (window.wsSync && window.wsSync.clientType === 'display') {
         console.log('Awaiting.html: Setting up as display client');
-        // Add visual indicator for awaiting state
-        const style = document.createElement('style');
-        style.textContent = `
-          .awaiting-indicator {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(138, 68, 173, 0.9);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 14px;
-            z-index: 1000;
-            animation: pulse 2s infinite;
-          }
-        `;
-        document.head.appendChild(style);
-        
-        // Add awaiting indicator
-        const indicator = document.createElement('div');
-        indicator.className = 'awaiting-indicator';
-        indicator.textContent = 'En attente du dessinateur...';
-        document.body.appendChild(indicator);
         
         // Setup connection and message handling
         window.wsSync.onConnectionEstablished = () => {
-          indicator.textContent = 'Utilisateur en train de dessiner...';
-          indicator.style.background = 'rgba(142, 68, 173, 0.9)';
           console.log('Awaiting page WebSocket connected as display');
         };
 
