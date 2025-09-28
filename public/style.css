@@ -528,15 +528,16 @@ html, body {
   box-sizing: border-box;
 }
 .colorMenu {
-  position: absolute;
+  position: fixed;
   top: 50%;
-  right: calc(100% + 0px);
+  right: 80px;
   transform: translateY(-50%);
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
-  z-index: 100;
+  z-index: 1000;
+  max-width: 250px;
 }
 
 /* Advanced Color Picker */

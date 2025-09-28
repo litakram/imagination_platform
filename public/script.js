@@ -190,6 +190,21 @@ document.addEventListener('DOMContentLoaded', () => {
       redoBtn.classList.remove('active');
     }
     
+    // Check if we're clicking on shape control icons first
+    if (activeShape && !activeShape.finalized) {
+      // Check confirm icon
+      if (activeShape.isPointInConfirmIcon(x, y)) {
+        confirmActiveShape();
+        return; // Prevent any other actions
+      }
+      
+      // Check cancel icon  
+      if (activeShape.isPointInCancelIcon(x, y)) {
+        cancelActiveShape();
+        return; // Prevent any other actions
+      }
+    }
+    
     // Handle shape creation first
     if (isCreatingShape && selectedShapeType) {
       // Create a new shape
@@ -248,11 +263,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // If shape is finalized, treat it like the background - just draw on it
     } else {
       // Clicked on empty canvas area
-      // If there's an active shape, finalize it
+      // If there's an active shape, finalize it and DON'T start drawing
       if (activeShape) {
-        activeShape.finalized = true; // Mark the shape as finalized
-        activeShape = null;
-        redraw(); // Redraw to remove resize handles
+        confirmActiveShape(); // Use our new confirm function
+        return; // Don't proceed with drawing to avoid creating a dot
       }
       
       // Only proceed with drawing if not in shape creation mode
@@ -586,6 +600,10 @@ document.addEventListener('DOMContentLoaded', () => {
    * Initialize the advanced color picker
    */
   function initColourMenu() {
+    console.log('Initializing color picker...');
+    console.log('colorMenu element:', colorMenu);
+    console.log('currentColorDisplay element:', currentColorDisplay);
+    
     // Clear any existing content
     colorMenu.innerHTML = '';
     
@@ -594,17 +612,23 @@ document.addEventListener('DOMContentLoaded', () => {
       container: colorMenu,
       initialColor: currentColor,
       onChange: (color) => {
+        console.log('Color changed to:', color);
         setColour(color);
       }
     });
+    
+    console.log('Color picker created:', advancedColorPicker);
     
     // Store the color picker instance for later use
     window.advancedColorPicker = advancedColorPicker;
     
     // Set up the current color display click handler
     currentColorDisplay.addEventListener('click', (e) => {
+      console.log('Color picker clicked!');
       e.stopPropagation();
+      console.log('Toggling color picker...');
       advancedColorPicker.toggle();
+      console.log('Color picker visible:', advancedColorPicker.isVisible());
     });
     
     // Close the color picker when clicking outside
@@ -893,9 +917,115 @@ document.addEventListener('DOMContentLoaded', () => {
         context.lineTo(rotationHandleX - 3, rotationHandleY - 2);
         context.fillStyle = 'white';
         context.fill();
+        
+        // Draw shape control icons (confirm and cancel)
+        this.drawControlIcons(context);
       }
       
       context.restore();
+    }
+    
+    // Draw control icons (confirm and cancel) for shape editing
+    drawControlIcons(context) {
+      // Position the icons on the right side of the shape
+      const iconSize = 16;
+      const iconSpacing = 25;
+      const baseX = this.x + this.width + 15; // 15px to the right of the shape
+      const baseY = this.y + this.height / 2; // Vertically centered
+      
+      // Store icon positions for click detection
+      this.confirmIconBounds = {
+        x: baseX,
+        y: baseY - iconSpacing / 2 - iconSize / 2,
+        width: iconSize,
+        height: iconSize
+      };
+      
+      this.cancelIconBounds = {
+        x: baseX,
+        y: baseY + iconSpacing / 2 - iconSize / 2,
+        width: iconSize,
+        height: iconSize
+      };
+      
+      // Draw confirm icon (green checkmark)
+      context.save();
+      
+      // Confirm icon background
+      context.fillStyle = '#4CAF50';
+      context.beginPath();
+      this.drawRoundedRect(context, this.confirmIconBounds.x, this.confirmIconBounds.y, iconSize, iconSize, 4);
+      context.fill();
+      
+      // White border
+      context.strokeStyle = 'white';
+      context.lineWidth = 1;
+      context.stroke();
+      
+      // Draw checkmark
+      context.strokeStyle = 'white';
+      context.lineWidth = 2;
+      context.lineCap = 'round';
+      context.beginPath();
+      context.moveTo(this.confirmIconBounds.x + 4, this.confirmIconBounds.y + 8);
+      context.lineTo(this.confirmIconBounds.x + 7, this.confirmIconBounds.y + 11);
+      context.lineTo(this.confirmIconBounds.x + 12, this.confirmIconBounds.y + 5);
+      context.stroke();
+      
+      // Draw cancel icon (red X)
+      context.fillStyle = '#f44336';
+      context.beginPath();
+      this.drawRoundedRect(context, this.cancelIconBounds.x, this.cancelIconBounds.y, iconSize, iconSize, 4);
+      context.fill();
+      
+      // White border
+      context.strokeStyle = 'white';
+      context.lineWidth = 1;
+      context.stroke();
+      
+      // Draw X
+      context.strokeStyle = 'white';
+      context.lineWidth = 2;
+      context.lineCap = 'round';
+      context.beginPath();
+      context.moveTo(this.cancelIconBounds.x + 4, this.cancelIconBounds.y + 4);
+      context.lineTo(this.cancelIconBounds.x + 12, this.cancelIconBounds.y + 12);
+      context.moveTo(this.cancelIconBounds.x + 12, this.cancelIconBounds.y + 4);
+      context.lineTo(this.cancelIconBounds.x + 4, this.cancelIconBounds.y + 12);
+      context.stroke();
+      
+      context.restore();
+    }
+    
+    // Helper method to draw rounded rectangles (polyfill for older browsers)
+    drawRoundedRect(context, x, y, width, height, radius) {
+      if (width < 2 * radius) radius = width / 2;
+      if (height < 2 * radius) radius = height / 2;
+      
+      context.moveTo(x + radius, y);
+      context.arcTo(x + width, y, x + width, y + height, radius);
+      context.arcTo(x + width, y + height, x, y + height, radius);
+      context.arcTo(x, y + height, x, y, radius);
+      context.arcTo(x, y, x + width, y, radius);
+      context.closePath();
+    }
+    
+    // Check if a point is within the confirm icon
+    isPointInConfirmIcon(px, py) {
+      if (!this.confirmIconBounds) return false;
+      return px >= this.confirmIconBounds.x && 
+             px <= this.confirmIconBounds.x + this.confirmIconBounds.width &&
+             py >= this.confirmIconBounds.y && 
+             py <= this.confirmIconBounds.y + this.confirmIconBounds.height;
+    }
+    
+    // Check if a point is within the cancel icon
+    isPointInCancelIcon(px, py) {
+      if (!this.cancelIconBounds) return false;
+      return px >= this.cancelIconBounds.x && 
+             px <= this.cancelIconBounds.x + this.cancelIconBounds.width &&
+             py >= this.cancelIconBounds.y && 
+             py <= this.cancelIconBounds.y + this.cancelIconBounds.height;
     }
     
     // Resize the shape based on a drag operation
@@ -1151,6 +1281,51 @@ document.addEventListener('DOMContentLoaded', () => {
     redraw();
     
     return newShape;
+  }
+  
+  // Function to confirm/finalize the active shape
+  function confirmActiveShape() {
+    if (activeShape && !activeShape.finalized) {
+      // Mark the shape as finalized
+      activeShape.finalized = true;
+      
+      // Clear active shape selection
+      activeShape = null;
+      
+      // Mark as drawing changed for prediction
+      drawingChanged = true;
+      
+      // Redraw to remove the resize handles and control icons
+      redraw();
+    }
+  }
+  
+  // Function to cancel/remove the active shape
+  function cancelActiveShape() {
+    if (activeShape && !activeShape.finalized) {
+      // Find and remove the shape from the shapes array
+      const shapeIndex = shapes.findIndex(shape => shape.id === activeShape.id);
+      if (shapeIndex !== -1) {
+        shapes.splice(shapeIndex, 1);
+      }
+      
+      // Also remove the corresponding entry from paths for undo functionality
+      const pathIndex = paths.findIndex(path => 
+        path.isShape && path.shapeId === activeShape.id && path.action === 'add'
+      );
+      if (pathIndex !== -1) {
+        paths.splice(pathIndex, 1);
+      }
+      
+      // Clear active shape selection
+      activeShape = null;
+      
+      // Mark as drawing changed for prediction
+      drawingChanged = true;
+      
+      // Redraw to remove the shape
+      redraw();
+    }
   }
   
   // Function to find a shape at a specific position
