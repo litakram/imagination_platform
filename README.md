@@ -1,4 +1,4 @@
-# Imagination Platform v3
+# Imagination Platform v4
 
 An interactive web application that transforms simple sketches into stunning artwork using AI. This platform allows users to draw directly in the browser and convert their sketches into various artistic styles through integration with powerful AI image generation APIs.
 
@@ -135,5 +135,6 @@ For proper display of style images in both local development and Node.js server 
 - Cat style reference images showcasing different artistic styles
 
 ## License
+
 
 All rights reserved. This project is proprietary and not available for redistribution.
