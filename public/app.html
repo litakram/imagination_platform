@@ -110,6 +110,9 @@
         console.log('Sent BroadcastChannel message');
       }
       
+      // Set flag to indicate we're returning from the app
+      sessionStorage.setItem('returnedFromApp', 'true');
+      
       // Navigate to index2.html (always, since app.html is the controller interface)
       console.log('Navigating to index2.html');
       window.location.href = 'index2.html';

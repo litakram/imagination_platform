@@ -309,6 +309,67 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Also serve the images folder as a static directory
 app.use('/images', express.static(path.join(__dirname, 'images')));
 
+// Root route - serve index.html (display screen) which will auto-open index2.html (controller)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Optional: Add a manual route to open both screens
+app.get('/dual-screen', (req, res) => {
+  const dualScreenHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Dual Screen Launcher</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          text-align: center; 
+          padding: 50px; 
+          background: linear-gradient(135deg, #EDBF0D, #FDE484);
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          background: white;
+          padding: 30px;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        button {
+          background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+          color: white;
+          border: none;
+          padding: 15px 30px;
+          font-size: 18px;
+          border-radius: 8px;
+          cursor: pointer;
+          margin: 10px;
+        }
+        button:hover { transform: translateY(-2px); }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>🎨 Imagination Platform - Dual Screen Setup</h1>
+        <p>Click the button below to launch both screens:</p>
+        <button onclick="openDualScreen()">🚀 Launch Dual Screen Mode</button>
+        <p><small>Or visit <a href="/">the main page</a> for automatic setup</small></p>
+      </div>
+      
+      <script>
+        function openDualScreen() {
+          // Open display screen in current tab
+          window.location.href = '/';
+          // The display screen will automatically open the controller
+        }
+      </script>
+    </body>
+    </html>
+  `;
+  res.send(dualScreenHTML);
+});
+
 /**
  * POST /api/predict
  *

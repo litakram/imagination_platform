@@ -20,11 +20,187 @@
     window.addEventListener('resize', setVH);
     window.addEventListener('orientationchange', setVH);
     
+    // Clear auto-open flag on page unload to allow fresh auto-opens
+    window.addEventListener('beforeunload', () => {
+      localStorage.removeItem('controllerAutoOpened');
+    });
+    
+    // Clear session flags when page is refreshed or loaded fresh
+    window.addEventListener('load', () => {
+      // Only clear if it's a true page refresh (not a navigation)
+      if (performance.navigation.type === 1) { // TYPE_RELOAD
+        sessionStorage.removeItem('hasVisitedIndex');
+        sessionStorage.removeItem('returnedFromApp');
+        sessionStorage.removeItem('isInApp');
+      }
+    });
+    
     // Display screen - no direct navigation function
     // Navigation is controlled via WebSocket from controller screen
+    
+    // Function to automatically open the controller page
+    function autoOpenController() {
+      try {
+        // Check if we're already on the controller page to avoid infinite loops
+        if (window.location.pathname.includes('index2.html')) {
+          console.log('Already on controller page, skipping auto-open');
+          return;
+        }
+        
+        // Check if we're returning from the app (navigation from app.html)
+        const isReturningFromApp = document.referrer.includes('app.html') || 
+                                   sessionStorage.getItem('isInApp') === 'true' ||
+                                   sessionStorage.getItem('returnedFromApp') === 'true';
+        
+        if (isReturningFromApp) {
+          console.log('Returning from app, skipping auto-open');
+          // Clear the return flag
+          sessionStorage.removeItem('returnedFromApp');
+          sessionStorage.removeItem('isInApp');
+          return;
+        }
+        
+        // Check if this is a fresh page load (not a refresh or navigation)
+        const isFreshLoad = !sessionStorage.getItem('hasVisitedIndex');
+        
+        if (!isFreshLoad) {
+          console.log('Not a fresh page load, skipping auto-open');
+          return;
+        }
+        
+        // Mark that we've visited the index page
+        sessionStorage.setItem('hasVisitedIndex', 'true');
+        
+        // Show manual controller button after a delay if auto-open was attempted
+        setTimeout(() => {
+          const manualBtn = document.getElementById('manualControllerBtn');
+          if (manualBtn) {
+            manualBtn.style.display = 'block';
+          }
+        }, 3000); // Show after 3 seconds
+        
+        // Check if controller is already open by checking localStorage flag
+        const controllerOpened = localStorage.getItem('controllerAutoOpened');
+        const currentTime = Date.now();
+        
+        // Only auto-open if not done recently (within last 10 seconds)
+        if (!controllerOpened || (currentTime - parseInt(controllerOpened)) > 10000) {
+          console.log('Auto-opening controller page (index2.html)...');
+          
+          // Open index2.html in a new tab
+          const controllerWindow = window.open('index2.html', '_blank');
+          
+          if (controllerWindow) {
+            // Set flag to prevent multiple opens
+            localStorage.setItem('controllerAutoOpened', currentTime.toString());
+            console.log('Controller page opened successfully');
+            
+            // Show success message
+            setTimeout(() => {
+              showNotification(
+                '✅ Dual Screen Ready!', 
+                'Controller opened in new tab. Use the controller to interact while this screen displays the content.',
+                'success'
+              );
+            }, 1000);
+            
+            // Optional: Focus the new tab (may not work due to browser restrictions)
+            try {
+              controllerWindow.focus();
+            } catch (e) {
+              console.log('Could not focus controller window (browser restriction)');
+            }
+          } else {
+            console.warn('Controller window could not be opened - popup blocked?');
+            
+            // Show a user-friendly message if popup was blocked
+            setTimeout(() => {
+              showNotification(
+                '🚫 Popup Blocked!', 
+                'Please allow popups and <a href="index2.html" target="_blank" style="color: #fff; text-decoration: underline;">click here to open the controller</a>',
+                'warning'
+              );
+            }, 1000);
+          }
+        } else {
+          console.log('Controller recently auto-opened, skipping');
+        }
+      } catch (error) {
+        console.error('Error auto-opening controller:', error);
+      }
+    }
+    
+    // Helper function to show notifications
+    function showNotification(title, message, type = 'info') {
+      const notification = document.createElement('div');
+      
+      const colors = {
+        success: 'rgba(76, 175, 80, 0.9)',
+        warning: 'rgba(255, 165, 0, 0.9)',
+        error: 'rgba(244, 67, 54, 0.9)',
+        info: 'rgba(33, 150, 243, 0.9)'
+      };
+      
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${colors[type]};
+        color: white;
+        padding: 15px 25px;
+        border-radius: 10px;
+        font-size: 14px;
+        z-index: 10000;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        max-width: 400px;
+        animation: slideDown 0.3s ease-out;
+      `;
+      
+      notification.innerHTML = `
+        <strong>${title}</strong><br>
+        ${message}
+      `;
+      
+      // Add slide down animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideDown {
+          from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+          to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      document.body.appendChild(notification);
+      
+      // Remove notification after 6 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.style.animation = 'slideUp 0.3s ease-in forwards';
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 300);
+        }
+      }, 6000);
+      
+      // Add slide up animation for removal
+      style.textContent += `
+        @keyframes slideUp {
+          from { transform: translateX(-50%) translateY(0); opacity: 1; }
+          to { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+        }
+      `;
+    }
 
     // Initialize WebSocket when page loads
     window.addEventListener('load', () => {
+      // Auto-open controller page (index2.html) in a new tab
+      autoOpenController();
+      
       initializeWebSocket();
       
       // Override wsSync methods for display-specific behavior
@@ -353,5 +529,44 @@
     </div>
   </div>
   </div>
+  
+  <!-- Manual controller button (positioned discretely) -->
+  <button id="manualControllerBtn" onclick="openControllerManually()" style="
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(116, 96, 196, 0.8);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    display: none;
+  " 
+  onmouseover="this.style.background='rgba(116, 96, 196, 1.0)'; this.style.transform='translateY(-2px)'" 
+  onmouseout="this.style.background='rgba(116, 96, 196, 0.8)'; this.style.transform='translateY(0)'">
+    🎮 Open Controller
+  </button>
+
+  <script>
+    // Function to manually open controller
+    function openControllerManually() {
+      const controllerWindow = window.open('index2.html', '_blank');
+      if (controllerWindow) {
+        showNotification('🎮 Controller Opened', 'Controller page opened in new tab', 'success');
+        try {
+          controllerWindow.focus();
+        } catch (e) {
+          console.log('Could not focus controller window');
+        }
+      } else {
+        showNotification('❌ Open Failed', 'Please allow popups and try again', 'error');
+      }
+    }
+  </script>
 </body>
 </html>

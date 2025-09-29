@@ -62,7 +62,7 @@
                   // Check for return_to_home action
                   if (data.type === 'sync_action' && data.action === 'return_to_home') {
                     console.log('Awaiting page: HOME ACTION DETECTED! Navigating to index.html');
-                    window.location.href = 'index.html';
+                    navigateToIndex();
                     return;
                   }
                   
@@ -172,7 +172,7 @@
                     if (window.testReturnHome) {
                       window.testReturnHome();
                     } else {
-                      window.location.href = 'index.html';
+                      navigateToIndex();
                     }
                   }
                   return;
@@ -206,7 +206,7 @@
               console.log('🚀 AWAITING PAGE: Fresh localStorage home signal detected!');
               lastHomeCheck = signalTime;
               localStorage.removeItem('returnToHome'); // Clean up
-              window.location.href = 'index.html';
+              navigateToIndex();
               return;
             }
           }
@@ -222,7 +222,7 @@
             console.log('🚀 AWAITING PAGE: BroadcastChannel message received:', event.data);
             if (event.data.action === 'return_to_home' && event.data.timestamp > pageLoadTime) {
               console.log('🚀 AWAITING PAGE: Fresh BroadcastChannel home action detected!');
-              window.location.href = 'index.html';
+              navigateToIndex();
             }
           };
         }
@@ -232,28 +232,34 @@
           console.log('Awaiting page received window message:', event.data);
           if (event.data && event.data.action === 'return_to_home') {
             console.log('Awaiting page: Window message return home received');
-            window.location.href = 'index.html';
+            navigateToIndex();
           }
         });
 
         // Method 4: Custom events
         window.addEventListener('returnToHome', function() {
           console.log('Awaiting page: Custom returnToHome event received');
-          window.location.href = 'index.html';
+          navigateToIndex();
         });
 
         // Method 5: Storage event listener (for cross-tab communication)
         window.addEventListener('storage', function(event) {
           if (event.key === 'returnToHome' && event.newValue) {
             console.log('🚀 AWAITING PAGE: Storage event home signal detected!');
-            window.location.href = 'index.html';
+            navigateToIndex();
           }
         });
+
+        // Helper function to navigate back to index with proper flags
+        function navigateToIndex() {
+          sessionStorage.setItem('returnedFromApp', 'true');
+          window.location.href = 'index.html';
+        }
 
         // Add a test function for debugging
         window.testReturnHome = function() {
           console.log('Test return home function called');
-          window.location.href = 'index.html';
+          navigateToIndex();
         };
 
         // Add a hidden button for programmatic navigation (keep it for WebSocket trigger)

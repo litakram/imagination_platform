@@ -30,6 +30,9 @@
         });
       }
       
+      // Set flag to indicate we're entering the app
+      sessionStorage.setItem('isInApp', 'true');
+      
       // Controller navigates to regular app
       window.location.href = 'app.html';
     }
