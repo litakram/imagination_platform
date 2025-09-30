@@ -117,6 +117,91 @@
       console.log('Navigating to index2.html');
       window.location.href = 'index2.html';
     }
+    
+    // Function to toggle style panel
+    function toggleStylePanel() {
+      const panel = document.getElementById('stylePanel');
+      panel.classList.toggle('hidden');
+    }
+    
+    // Function to select a style
+    function selectStyle(style) {
+      // Remove previous selection
+      document.querySelectorAll('.style-option').forEach(option => {
+        option.classList.remove('selected');
+      });
+      
+      // Add selection to clicked option
+      event.target.closest('.style-option').classList.add('selected');
+      
+      // Store selected style
+      window.selectedStyle = style;
+      
+      // Update the style button text to show selected style
+      const styleText = document.querySelector('.style-text');
+      const selectedLabel = event.target.closest('.style-option').querySelector('.style-label').textContent;
+      if (styleText) {
+        styleText.textContent = selectedLabel;
+      }
+      
+      // Hide the panel after selection
+      setTimeout(() => {
+        toggleStylePanel();
+      }, 300);
+      
+      console.log('Style selected:', style);
+    }
+    
+    // Function to handle generate button in chat toolbar
+    function generateFromChat() {
+      const promptInput = document.getElementById('personalPrompt');
+      let prompt = promptInput.value.trim();
+      
+      if (prompt) {
+        // Add selected style to prompt if one is selected
+        if (window.selectedStyle) {
+          const styleMap = {
+            'realistic': 'in realistic style',
+            'cartoon': 'in cartoon style',
+            'anime': 'in anime style',
+            'watercolor': 'in watercolor painting style',
+            'oil-painting': 'in oil painting style',
+            'sketch': 'in sketch style',
+            'digital-art': 'in digital art style',
+            '3d-render': 'in 3D rendered style',
+            'pop-art': 'in pop art style',
+            'minimalist': 'in minimalist style',
+            'vintage': 'in vintage style',
+            'cyberpunk': 'in cyberpunk style'
+          };
+          
+          const stylePrompt = styleMap[window.selectedStyle] || '';
+          if (stylePrompt) {
+            prompt += ', ' + stylePrompt;
+          }
+        }
+        
+        // Use existing generate function from script.js
+        if (typeof generateImage === 'function') {
+          generateImage(prompt);
+        } else {
+          // Fallback if generateImage function is not available
+          console.log('Generating image with prompt:', prompt);
+          // You can implement the generation logic here
+        }
+        
+        // Clear the input
+        promptInput.value = '';
+      }
+    }
+    
+    // Handle Enter key in chat input
+    function handleChatKeyPress(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        generateFromChat();
+      }
+    }
   </script>
 </head>
 <body>
@@ -164,32 +249,82 @@
         
         <!-- Important sketches button -->
         <button id="importantSketchesBtn" class="toolButton" title="Croquis Importants">📁</button>
+        
+        <!-- Divider for home button -->
+        <div class="panel-divider"></div>
+        
+        <!-- Home button in side panel -->
+        <button id="homeBtn" class="toolButton home-tool-btn" title="Retour à l'accueil" onclick="returnToHome()">🏠</button>
       </div>
     </div>
 
-    <!-- Bottom panel with organized controls -->
-    <div id="bottomPanel">
-      <div class="bottom-content">
-        <!-- Main content area -->
-        <div class="main-content-row">
-          <!-- Personal prompt section -->
-          <div class="prompt-section">
-            <div class="prompt-container">
-              <label for="personalPrompt" class="prompt-label">Ajoutez votre touche personnelle à votre imagination</label>
-              <textarea id="personalPrompt" class="personal-prompt" placeholder="Entrez votre instruction personnalisée ici..."></textarea>
-            </div>
+    <!-- Bottom transparent chat toolbar -->
+    <div id="bottomToolbar">
+      <div class="chat-toolbar">
+        <!-- Style selector button (left) -->
+        <button id="styleToggleBtn" class="toolbar-btn style-btn" title="Styles" onclick="toggleStylePanel()">
+          <div class="style-circle">
+            <span class="style-text">Style</span>
           </div>
-          
-          <!-- Style selection section -->
-          <div class="style-section">
-            <div id="styleCarousel"></div>
-          </div>
+        </button>
+        
+        <!-- Personal prompt input (center) -->
+        <div class="prompt-input-container">
+          <textarea id="personalPrompt" class="chat-prompt-input" placeholder="Décrivez votre imagination..." onkeypress="handleChatKeyPress(event)"></textarea>
         </div>
         
-        <!-- Action buttons section -->
-        <div class="action-buttons">
-          <button id="homeBtn" class="homeBtn" title="Retour à l'accueil" onclick="returnToHome()">🏠 Accueil</button>
-          <button id="generateBtn" class="generateBtn">Générer</button>
+        <!-- Generate button (right) -->
+        <button id="generateBtn" class="toolbar-btn generate-btn" title="Générer" onclick="generateFromChat()">
+          <div class="generate-arrow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12h14m-7-7 7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </button>
+      </div>
+      
+      <!-- Style suggestions panel (hidden by default) -->
+      <div id="stylePanel" class="style-suggestions-panel hidden">
+        <div class="style-suggestions-container">
+          <h3 class="style-panel-title">Choisissez un style</h3>
+          <div id="styleCarousel" class="style-grid">
+            <div class="style-option" onclick="selectStyle('watercolor')">
+              <div class="style-preview">
+                <div class="style-circle-preview watercolor-preview"></div>
+              </div>
+              <span class="style-label">Aquarelle</span>
+            </div>
+            <div class="style-option" onclick="selectStyle('illustration')">
+              <div class="style-preview">
+                <div class="style-circle-preview illustration-preview"></div>
+              </div>
+              <span class="style-label">Illustration</span>
+            </div>
+            <div class="style-option" onclick="selectStyle('pop-art')">
+              <div class="style-preview">
+                <div class="style-circle-preview pop-art-preview"></div>
+              </div>
+              <span class="style-label">Pop Art</span>
+            </div>
+            <div class="style-option" onclick="selectStyle('sketch')">
+              <div class="style-preview">
+                <div class="style-circle-preview sketch-preview"></div>
+              </div>
+              <span class="style-label">Croquis</span>
+            </div>
+            <div class="style-option" onclick="selectStyle('3d-anime')">
+              <div class="style-preview">
+                <div class="style-circle-preview anime-3d-preview"></div>
+              </div>
+              <span class="style-label">Dessin Animé 3D</span>
+            </div>
+            <div class="style-option" onclick="selectStyle('oil-painting')">
+              <div class="style-preview">
+                <div class="style-circle-preview oil-painting-preview"></div>
+              </div>
+              <span class="style-label">Peinture à l'huile</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -381,6 +516,276 @@
 
     .homeBtn:active {
       transform: translateY(1px);
+    }
+    
+    /* Transparent chat toolbar styles */
+    #bottomToolbar {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      pointer-events: none; /* Allow drawing under the toolbar */
+    }
+    
+    .chat-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: transparent;
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 30px;
+      padding: 12px 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      pointer-events: auto; /* Re-enable pointer events for toolbar items */
+      min-width: 600px;
+      max-width: 800px;
+      width: 70vw;
+    }
+    
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    
+    .style-btn {
+      width: 50px;
+      height: 50px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      border: none;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+    }
+    
+    .style-circle {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 12px rgba(116, 96, 196, 0.3);
+      aspect-ratio: 1 / 1;
+      min-width: 48px;
+      min-height: 48px;
+    }
+    
+    .style-text {
+      writing-mode: horizontal-tb;
+      text-align: center;
+    }
+    
+    .generate-btn {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(116, 96, 196, 0.3);
+      flex-shrink: 0;
+    }
+    
+    .generate-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .toolbar-btn:hover {
+      transform: scale(1.1);
+    }
+    
+    .toolbar-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .prompt-input-container {
+      flex: 1;
+      margin: 0 25px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .chat-prompt-input {
+      width: 100%;
+      min-height: 35px;
+      max-height: 80px;
+      padding: 8px 15px;
+      border: none;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 18px;
+      font-family: inherit;
+      font-size: 14px;
+      color: #333;
+      resize: none;
+      outline: none;
+      transition: all 0.3s ease;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chat-prompt-input:focus {
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 2px rgba(116, 96, 196, 0.3);
+    }
+    
+    .chat-prompt-input::placeholder {
+      color: #888;
+      font-style: italic;
+    }
+    
+    /* Style suggestions panel */
+    .style-suggestions-panel {
+      position: absolute;
+      bottom: 80px;
+      left: 0;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 20px;
+      padding: 15px 25px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+      min-width: 600px;
+      max-width: 600px;
+      width: auto;
+      pointer-events: auto;
+      z-index: 25;
+    }
+    
+    .style-suggestions-panel.hidden {
+      display: none;
+    }
+    
+    .style-panel-title {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+      text-align: center;
+    }
+    
+    .style-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 15px;
+      max-width: 100%;
+      padding: 5px;
+    }
+    
+    .style-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 8px;
+      background: transparent;
+      border: 2px solid transparent;
+      border-radius: 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .style-option:hover {
+      background: rgba(116, 96, 196, 0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(116, 96, 196, 0.2);
+    }
+    
+    .style-option.selected {
+      background: rgba(116, 96, 196, 0.2);
+      border-color: #7460C4;
+    }
+    
+    .style-preview {
+      margin-bottom: 6px;
+    }
+    
+    .style-circle-preview {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+      border: 3px solid #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .watercolor-preview {
+      background: linear-gradient(135deg, #ffb3ba 0%, #ffdfba 50%, #ffffba 100%);
+    }
+    
+    .illustration-preview {
+      background: linear-gradient(135deg, #bae1ff 0%, #a8e6cf 50%, #dcedc1 100%);
+    }
+    
+    .pop-art-preview {
+      background: linear-gradient(135deg, #ff6b9d 0%, #c44569 50%, #f8b500 100%);
+    }
+    
+    .sketch-preview {
+      background: linear-gradient(135deg, #e8e8e8 0%, #d3d3d3 50%, #c0c0c0 100%);
+    }
+    
+    .anime-3d-preview {
+      background: linear-gradient(135deg, #74b9ff 0%, #0984e3 50%, #6c5ce7 100%);
+    }
+    
+    .oil-painting-preview {
+      background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 50%, #fd79a8 100%);
+    }
+    
+    .style-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #333;
+      text-align: center;
+      line-height: 1.2;
+      white-space: nowrap;
+      max-width: 120px;
+    }
+    
+    .style-option:hover {
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(116, 96, 196, 0.3);
+    }
+    
+    .style-option.selected {
+      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
+      color: white;
+      border-color: #7460C4;
+    }
+    
+    /* Home button in side panel styling */
+    .home-tool-btn {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+      color: white;
+      font-size: 0.9rem;
+    }
+    
+    .home-tool-btn:hover {
+      background: linear-gradient(135deg, #ee5a24 0%, #ff6b6b 100%);
+      transform: scale(1.1);
     }
   </style>
 </body>
