@@ -2135,14 +2135,31 @@ document.addEventListener('DOMContentLoaded', () => {
       const dataUrl = canvas.toDataURL('image/png');
       // Get the personal prompt if available
       const personalPromptInput = document.getElementById('personalPrompt');
-      const personalPrompt = personalPromptInput ? personalPromptInput.value.trim() : '';
+      let personalPrompt = personalPromptInput ? personalPromptInput.value.trim() : '';
+      
+      // Enhance personal prompt with the selected style if available
+      // Instead of modifying the personalPrompt directly, we'll now send style as a separate parameter
+      // But we'll still add style info to personalPrompt for clarity and redundancy
+      if (selectedStyle && selectedStyle.trim() !== '') {
+        // Only add style information if there's a personal prompt or if it's the only information
+        if (personalPrompt !== '') {
+          personalPrompt += `, dans le style ${selectedStyle}`;
+        } else {
+          personalPrompt = `Dans le style ${selectedStyle}`;
+        }
+        console.log(`Enhanced prompt with style: ${personalPrompt}`);
+      }
+      
+      // Log the final prompt being sent for debugging
+      console.log(`Generating with style: ${selectedStyle || 'No style selected'}`);
+      console.log(`Personal prompt: ${personalPrompt}`);
       
       const payload = {
         image: dataUrl,
         style: selectedStyle,
         question: lastGuess,
         answer: lastAnswer,
-        personalPrompt: personalPrompt // Add the personal prompt to the payload
+        personalPrompt: personalPrompt // Contains both user input and style
       };
       const res = await fetch('/api/generate', {
         method: 'POST',

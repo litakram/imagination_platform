@@ -181,15 +181,6 @@
           }
         }
         
-        // Use existing generate function from script.js
-        if (typeof generateImage === 'function') {
-          generateImage(prompt);
-        } else {
-          // Fallback if generateImage function is not available
-          console.log('Generating image with prompt:', prompt);
-          // You can implement the generation logic here
-        }
-        
         // Clear the input
         promptInput.value = '';
       }
