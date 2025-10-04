@@ -60,27 +60,10 @@ class ColorPicker {
     this.colorPreview.className = 'color-preview';
     this.controlsContainer.appendChild(this.colorPreview);
     
-    // Button container
-    this.buttonContainer = document.createElement('div');
-    this.buttonContainer.className = 'button-container';
-    
-    // Apply button
-    this.applyBtn = document.createElement('button');
-    this.applyBtn.textContent = 'Appliquer';
-    this.applyBtn.className = 'apply-btn';
-    this.buttonContainer.appendChild(this.applyBtn);
-    
-    // Cancel button
-    this.cancelBtn = document.createElement('button');
-    this.cancelBtn.textContent = 'Annuler';
-    this.cancelBtn.className = 'cancel-btn';
-    this.buttonContainer.appendChild(this.cancelBtn);
-    
-    // Assemble the picker
+    // Assemble the picker (removed button container)
     this.pickerEl.appendChild(this.svPalette);
     this.pickerEl.appendChild(this.hueContainer);
     this.pickerEl.appendChild(this.controlsContainer);
-    this.pickerEl.appendChild(this.buttonContainer);
     
     // Add to the container
     this.container.appendChild(this.pickerEl);
@@ -96,6 +79,10 @@ class ColorPicker {
       this._updateSVPaletteBackground();
       this._updateColorFromHSV();
       this._updateUI();
+      // Auto-apply color change
+      this.onChange(this.currentColor);
+      // Auto-hide after a longer delay (same as SV palette)
+      setTimeout(() => this.hide(), 8000);
     });
     
     // SV palette events
@@ -133,18 +120,6 @@ class ColorPicker {
       this.svPalette.addEventListener('touchmove', handleTouchMove, { passive: false });
       this.svPalette.addEventListener('touchend', handleTouchEnd);
     }, { passive: false });
-    
-    // No hex or RGB input events needed
-    
-    // Button events
-    this.applyBtn.addEventListener('click', () => {
-      this.hide();
-      this.onChange(this.currentColor);
-    });
-    
-    this.cancelBtn.addEventListener('click', () => {
-      this.hide();
-    });
   }
   
   _handleSVPaletteInteraction(e) {
@@ -162,6 +137,10 @@ class ColorPicker {
     
     this._updateColorFromHSV();
     this._updateUI();
+    // Auto-apply color change
+    this.onChange(this.currentColor);
+    // Auto-hide after a reasonable delay
+    setTimeout(() => this.hide(), 8000);
   }
   
   _updateSVPaletteBackground() {

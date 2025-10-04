@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const circleBtn = document.getElementById('circleBtn');
   const triangleBtn = document.getElementById('triangleBtn');
   const lineBtn = document.getElementById('lineBtn');
+  const fillToolBtn = document.getElementById('fillToolBtn');
 
   // State variables
   let isDrawing = false;
@@ -60,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isResizingShape = false; // Flag for resizing mode
   let isMovingShape = false; // Flag for moving mode
   let isRotatingShape = false; // Flag for rotating mode
+  let isFillMode = false; // Flag for fill coloring mode
   let lastClickTime = 0; // For double-click detection
   let startPos = { x: 0, y: 0 }; // For resizing and moving operations
   let startAngle = 0; // For rotation operations
@@ -211,6 +213,34 @@ document.addEventListener('DOMContentLoaded', () => {
       createShape(selectedShapeType, x, y);
       drawingChanged = true;
       return; // Don't proceed with regular drawing
+    }
+    
+    // Handle fill mode interaction
+    if (isFillMode) {
+      // Check if clicking on a finalized shape
+      const clickedShape = findFinalizedShapeAt(x, y);
+      if (clickedShape) {
+        // Change the fill color of the clicked shape
+        const previousFillColor = clickedShape.fillColor;
+        clickedShape.fillColor = currentColor;
+        
+        // Add to undo stack
+        paths.push({
+          isShape: true,
+          shapeId: clickedShape.id,
+          action: 'fill',
+          previousFillColor: previousFillColor,
+          newFillColor: currentColor
+        });
+        undoBtn.classList.add('active');
+        
+        // Show visual feedback for successful fill
+        showFillFeedback(x, y, currentColor);
+        
+        redraw();
+        drawingChanged = true;
+      }
+      return; // Don't proceed with regular drawing in fill mode
     }
     
     // Check if we're clicking on a rotation handle
@@ -383,6 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!foundInteraction) {
         if (isCreatingShape) {
           canvas.style.cursor = 'crosshair';
+        } else if (isFillMode) {
+          canvas.style.cursor = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'%3E%3Cpath d=\'M10 2L12 8H18L13 12L15 18L10 14L5 18L7 12L2 8H8L10 2Z\' fill=\'%23ff6b6b\'/%3E%3C/svg%3E") 10 10, auto';
         } else if (isErasing) {
           canvas.style.cursor = 'cell'; // Crosshair with dot to indicate eraser
         } else {
@@ -525,38 +557,16 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Redraw each stored path
+    // Redraw each stored path in the correct layer order
     for (const path of paths) {
       // Check if it's a shape operation
       if (path.isShape) {
-        // We don't draw shapes here, as they're stored in the shapes array
-        // and drawn separately below
-        continue;
+        // Find and draw the corresponding shape to maintain layer order
+        const shape = shapes.find(s => s.id === path.shapeId);
+        if (shape && path.action === 'add') {
+          shape.draw(ctx);
+        }
       }
-      // Check if it's an imported sketch
-      else if (path.isImportedSketch && path.imageData) {
-        // Create a temporary image to draw the imported sketch
-        const img = new Image();
-        img.onload = function() {
-          // Calculate aspect ratio to fit image properly
-          const scale = Math.min(
-            canvas.width / img.width,
-            canvas.height / img.height
-          ) * 0.8; // Scale to 80% of available space
-          
-          const newWidth = img.width * scale;
-          const newHeight = img.height * scale;
-          
-          // Center the image
-          const x = (canvas.width - newWidth) / 2;
-          const y = (canvas.height - newHeight) / 2;
-          
-          // Draw the image
-          ctx.drawImage(img, x, y, newWidth, newHeight);
-        };
-        // Set the source to start loading
-        img.src = path.imageData;
-      } 
       // Check if it's a single point (simple click)
       else if (path.points && path.points.length === 1) {
         // Draw a circular point
@@ -575,11 +585,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         ctx.stroke();
       }
-    }
-    
-    // Draw all shapes
-    for (const shape of shapes) {
-      shape.draw(ctx);
     }
   }
 
@@ -1340,6 +1345,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
   
+  // Function to find a finalized shape at a specific position (for fill tool)
+  function findFinalizedShapeAt(x, y) {
+    // Check in reverse order to get the topmost shape
+    // Only return shapes that have been finalized
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      if (shapes[i].finalized && shapes[i].contains(x, y)) {
+        return shapes[i];
+      }
+    }
+    return null;
+  }
+  
+  // Function to show visual feedback when filling a shape
+  function showFillFeedback(x, y, color) {
+    // Create a temporary visual indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'shape-fill-indicator';
+    indicator.style.left = `${x}px`;
+    indicator.style.top = `${y}px`;
+    indicator.style.background = color;
+    indicator.textContent = 'REMPLI!';
+    
+    // Add to canvas container
+    const canvasContainer = canvas.parentElement;
+    canvasContainer.appendChild(indicator);
+    
+    // Remove after animation
+    setTimeout(() => {
+      if (indicator.parentElement) {
+        indicator.parentElement.removeChild(indicator);
+      }
+    }, 1000);
+  }
+  
   // Helper function to check if a point is over any resize handle
   function findResizeHandleAt(x, y) {
     // Check all shapes in reverse order (top to bottom)
@@ -1382,6 +1421,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Exit other modes
         isErasing = false;
         eraserBtn.classList.remove('active-eraser');
+        isFillMode = false;
+        if (fillToolBtn) {
+          fillToolBtn.classList.remove('active');
+          fillToolBtn.classList.remove('active-eraser');
+        }
       }
       
       // We don't deselect the active shape when switching tools
@@ -1408,6 +1452,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Exit other modes
         isErasing = false;
         eraserBtn.classList.remove('active-eraser');
+        isFillMode = false;
+        if (fillToolBtn) {
+          fillToolBtn.classList.remove('active');
+          fillToolBtn.classList.remove('active-eraser');
+        }
       }
       
       // We don't deselect the active shape when switching tools
@@ -1433,6 +1482,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Exit other modes
         isErasing = false;
         eraserBtn.classList.remove('active-eraser');
+        isFillMode = false;
+        if (fillToolBtn) {
+          fillToolBtn.classList.remove('active');
+          fillToolBtn.classList.remove('active-eraser');
+        }
       }
       
       // We don't deselect the active shape when switching tools
@@ -1463,10 +1517,48 @@ document.addEventListener('DOMContentLoaded', () => {
         // Exit other modes
         isErasing = false;
         eraserBtn.classList.remove('active-eraser');
+        isFillMode = false;
+        if (fillToolBtn) {
+          fillToolBtn.classList.remove('active');
+          fillToolBtn.classList.remove('active-eraser');
+        }
       }
       
       // We don't deselect the active shape when switching tools
     });
+    
+    // Fill tool button functionality
+    if (fillToolBtn) {
+      fillToolBtn.addEventListener('click', () => {
+        if (isFillMode) {
+          // Exit fill mode
+          isFillMode = false;
+          fillToolBtn.classList.remove('active');
+          fillToolBtn.classList.remove('active-eraser');
+        } else {
+          // Enter fill mode
+          isFillMode = true;
+          fillToolBtn.classList.add('active');
+          fillToolBtn.classList.add('active-eraser');
+          
+          // Exit other modes
+          isCreatingShape = false;
+          selectedShapeType = null;
+          isErasing = false;
+          
+          // Deactivate other buttons
+          squareBtn.classList.remove('active');
+          squareBtn.classList.remove('active-eraser');
+          circleBtn.classList.remove('active');
+          circleBtn.classList.remove('active-eraser');
+          triangleBtn.classList.remove('active');
+          triangleBtn.classList.remove('active-eraser');
+          lineBtn.classList.remove('active');
+          lineBtn.classList.remove('active-eraser');
+          eraserBtn.classList.remove('active-eraser');
+        }
+      });
+    }
   }
 
   /**
@@ -1676,7 +1768,14 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           const json = await res.json();
           if (json && json.guess) {
-            showPrompt(json.guess);
+            // Check ethics flag
+            if (json.ethics === 0) {
+              // Show censorship warning
+              showCensorshipWarning();
+            } else {
+              // Normal prediction flow
+              showPrompt(json.guess);
+            }
           }
         } catch (err) {
           console.error('Prediction request failed', err);
@@ -1716,6 +1815,101 @@ document.addEventListener('DOMContentLoaded', () => {
     topPrompt.classList.add('hidden');
     clearTimeout(promptTimeoutId);
   }
+
+  /**
+   * Show censorship warning overlay when inappropriate content is detected
+   */
+  function showCensorshipWarning() {
+    // Create the censorship overlay if it doesn't exist
+    let censorshipOverlay = document.getElementById('censorshipOverlay');
+    if (!censorshipOverlay) {
+      censorshipOverlay = document.createElement('div');
+      censorshipOverlay.id = 'censorshipOverlay';
+      censorshipOverlay.innerHTML = `
+        <div class="censorship-backdrop"></div>
+        <div class="censorship-container">
+          <div class="censorship-icon">🚫</div>
+          <h2 class="censorship-title">Contenu Censuré</h2>
+          <p class="censorship-message">
+            Votre croquis contient du contenu inapproprié et ne peut pas être traité.
+            Veuillez dessiner quelque chose d'approprié.
+          </p>
+          <button class="censorship-home-btn" onclick="returnToCensorshipHome()">
+            🏠 Retour à l'accueil
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(censorshipOverlay);
+    }
+    
+    // Apply blur effect to main content but NOT to the censorship overlay
+    const mainContent = document.querySelector('.app-container');
+    if (mainContent) {
+      mainContent.style.filter = 'blur(10px)';
+      mainContent.style.pointerEvents = 'none';
+    }
+    
+    // Show the overlay - it should appear above the blurred content
+    censorshipOverlay.style.display = 'flex';
+    
+    console.log('🚫 Censorship warning displayed');
+  }
+
+  /**
+   * Handle return to home from censorship warning
+   */
+  function returnToCensorshipHome() {
+    console.log('returnToCensorshipHome called');
+    
+    // Determine current page and redirect accordingly
+    const currentPath = window.location.pathname;
+    const currentPage = currentPath.split('/').pop() || 'index.html';
+    
+    console.log('Current page:', currentPage);
+    
+    // Check if we have WebSocket sync capability (from app.html)
+    if (typeof window.wsSync !== 'undefined' && window.wsSync.sendControllerAction) {
+      console.log('Sending WebSocket return_to_home message');
+      window.wsSync.sendControllerAction('return_to_home', {
+        reason: 'censorship_warning'
+      });
+    }
+    
+    // Set localStorage flag for synchronization
+    localStorage.setItem('returnToHome', Date.now().toString());
+    
+    // Use broadcast channel for communication between tabs
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('app-sync');
+      channel.postMessage({ action: 'return_to_home', timestamp: Date.now() });
+    }
+    
+    // Determine redirect destination based on current page
+    let redirectTo = '/';
+    
+    if (currentPage === 'app.html') {
+      // Controller page goes to index2.html
+      redirectTo = '/index2.html';
+      console.log('Redirecting from app.html to index2.html');
+    } else if (currentPage === 'awaiting.html') {
+      // Display page goes to index.html
+      redirectTo = '/index.html';
+      console.log('Redirecting from awaiting.html to index.html');
+    } else {
+      // Default fallback to home page
+      redirectTo = '/';
+      console.log('Default redirect to home page');
+    }
+    
+    // Perform the redirect
+    setTimeout(() => {
+      window.location.href = redirectTo;
+    }, 500);
+  }
+
+  // Make the function globally accessible
+  window.returnToCensorshipHome = returnToCensorshipHome;
 
   /**
    * Show the loader overlay.
@@ -1833,6 +2027,13 @@ document.addEventListener('DOMContentLoaded', () => {
       squareBtn.classList.remove('active');
       circleBtn.classList.remove('active');
       triangleBtn.classList.remove('active');
+      
+      // Exit fill mode
+      isFillMode = false;
+      if (fillToolBtn) {
+        fillToolBtn.classList.remove('active');
+        fillToolBtn.classList.remove('active-eraser');
+      }
     } else {
       eraserBtn.classList.remove('active-eraser');
     }
@@ -1887,6 +2088,20 @@ document.addEventListener('DOMContentLoaded', () => {
           // For now, we don't have a sophisticated way to undo modifications
           // Just store the action for redo
           redoPaths.push(removedPath);
+        }
+        else if (removedPath.action === 'fill') {
+          // Undo fill color change
+          const shape = shapes.find(s => s.id === removedPath.shapeId);
+          if (shape) {
+            shape.fillColor = removedPath.previousFillColor;
+            redoPaths.push({
+              isShape: true,
+              action: 'fill',
+              shapeId: shape.id,
+              previousFillColor: removedPath.newFillColor,
+              newFillColor: removedPath.previousFillColor
+            });
+          }
         }
         else if (removedPath.action === 'delete') {
           // Restore a deleted shape
@@ -1988,6 +2203,20 @@ document.addEventListener('DOMContentLoaded', () => {
           // For now, we don't have a sophisticated way to redo modifications
           // Just store the action for undo
           paths.push(pathToRestore);
+        }
+        else if (pathToRestore.action === 'fill') {
+          // Redo fill color change
+          const shape = shapes.find(s => s.id === pathToRestore.shapeId);
+          if (shape) {
+            shape.fillColor = pathToRestore.newFillColor;
+            paths.push({
+              isShape: true,
+              action: 'fill',
+              shapeId: shape.id,
+              previousFillColor: pathToRestore.previousFillColor,
+              newFillColor: pathToRestore.newFillColor
+            });
+          }
         }
         else if (pathToRestore.action === 'delete') {
           // Re-delete the shape
@@ -2118,8 +2347,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const personalPromptInput = document.getElementById('personalPrompt');
     const personalPrompt = personalPromptInput ? personalPromptInput.value.trim() : '';
     
-    // Allow generation with prompt only (no drawing)
-    if (paths.length === 0 && !personalPrompt) {
+    // Check if we have either a drawing or a text prompt
+    const hasDrawing = paths.length > 0;
+    const hasPrompt = personalPrompt !== '';
+    
+    if (!hasDrawing && !hasPrompt) {
       alert('Veuillez dessiner quelque chose ou saisir un prompt textuel !');
       return;
     }
@@ -2127,57 +2359,101 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cancel any pending prompt
     hidePrompt();
     
-    // Cacher le bouton retour s'il était visible d'une génération précédente
+    // Hide back button if it was visible from previous generation
     backBtn.style.display = 'none';
     
     showLoader();
+    
     try {
-      const dataUrl = canvas.toDataURL('image/png');
-      // Get the personal prompt if available
-      const personalPromptInput = document.getElementById('personalPrompt');
-      let personalPrompt = personalPromptInput ? personalPromptInput.value.trim() : '';
+      // Prepare payload - different handling for text-only vs image+text
+      let payload;
       
-      // Enhance personal prompt with the selected style if available
-      // Instead of modifying the personalPrompt directly, we'll now send style as a separate parameter
-      // But we'll still add style info to personalPrompt for clarity and redundancy
-      if (selectedStyle && selectedStyle.trim() !== '') {
-        // Only add style information if there's a personal prompt or if it's the only information
-        if (personalPrompt !== '') {
-          personalPrompt += `, dans le style ${selectedStyle}`;
-        } else {
-          personalPrompt = `Dans le style ${selectedStyle}`;
+      if (!hasDrawing && hasPrompt) {
+        // CASE 1: Text-only generation (Step 5)
+        console.log('No drawing detected, using text-to-image generation (Step 5)');
+        
+        // Enhance personal prompt with the selected style if available
+        let enhancedPrompt = personalPrompt;
+        if (selectedStyle && selectedStyle.trim() !== '') {
+          enhancedPrompt += `, dans le style ${selectedStyle}`;
         }
-        console.log(`Enhanced prompt with style: ${personalPrompt}`);
+        
+        // Clear the input after getting the value
+        personalPromptInput.value = '';
+        
+        payload = {
+          image: null,  // No image provided - triggers Step 5
+          style: selectedStyle,
+          question: null,
+          answer: null,
+          personalPrompt: enhancedPrompt
+        };
+        
+        console.log('Text-only generation payload:', {
+          hasImage: false,
+          style: selectedStyle || 'none',
+          prompt: enhancedPrompt
+        });
+        
+      } else {
+        // CASE 2: Image-to-image generation (Steps 2-4) with or without additional text prompt
+        console.log('Drawing detected, using image-to-image generation (Steps 2-4)');
+        
+        const dataUrl = canvas.toDataURL('image/png');
+        let processedPrompt = personalPrompt;
+        
+        // Enhance personal prompt with the selected style if available
+        if (selectedStyle && selectedStyle.trim() !== '') {
+          if (processedPrompt !== '') {
+            processedPrompt += `, dans le style ${selectedStyle}`;
+          } else {
+            processedPrompt = `Dans le style ${selectedStyle}`;
+          }
+        }
+        
+        payload = {
+          image: dataUrl,
+          style: selectedStyle,
+          question: lastGuess,
+          answer: lastAnswer,
+          personalPrompt: processedPrompt
+        };
+        
+        console.log('Image-to-image generation payload:', {
+          hasImage: true,
+          style: selectedStyle || 'none',
+          prompt: processedPrompt,
+          lastGuess: lastGuess || 'none',
+          lastAnswer: lastAnswer || 'none'
+        });
       }
       
-      // Log the final prompt being sent for debugging
-      console.log(`Generating with style: ${selectedStyle || 'No style selected'}`);
-      console.log(`Personal prompt: ${personalPrompt}`);
-      
-      const payload = {
-        image: dataUrl,
-        style: selectedStyle,
-        question: lastGuess,
-        answer: lastAnswer,
-        personalPrompt: personalPrompt // Contains both user input and style
-      };
+      // Make single API call to server
+      console.log('Making API call to /api/generate...');
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      
       const json = await res.json();
       
       if (res.ok && json.image) {
-        // Ne pas masquer le loader, il sera masqué quand l'image sera chargée
+        console.log('Generation successful:', {
+          service: json.fallbackType,
+          usedFallback: json.fallback,
+          generationType: payload.image ? 'image-to-image' : 'text-to-image'
+        });
+        
+        // Don't hide loader, it will be hidden when image loads
         showResult(json.image);
       } else {
-        hideLoader(); // Masquer le loader seulement en cas d'erreur
+        hideLoader(); // Hide loader only on error
         console.error('Generation error:', json.error);
         alert('Une erreur est survenue lors de la génération de l\'image.');
       }
     } catch (err) {
-      hideLoader(); // Masquer le loader en cas d'erreur
+      hideLoader(); // Hide loader on error
       console.error('Generation failed', err);
       alert('Une erreur est survenue lors de la génération de l\'image.');
     }
@@ -2188,170 +2464,11 @@ document.addEventListener('DOMContentLoaded', () => {
     hideResult();
   });
 
-  // Important Sketches and GS Engine functionality
-  const importantSketchesBtn = document.getElementById('importantSketchesBtn');
-  const importantSketchesSection = document.getElementById('importantSketchesSection');
-  const closeSketchesBtn = document.getElementById('closeSketchesBtn');
-  const sketchUpload = document.getElementById('sketchUpload');
-  const sketchesGallery = document.getElementById('sketchesGallery');
+  // Expose necessary functions to global scope for use by app.html functions
+  window.showLoader = showLoader;
+  window.hideLoader = hideLoader;
+  window.showResult = showResult;
+  window.hidePrompt = hidePrompt;
   
-  // Store sketches in localStorage
-  let savedSketches = JSON.parse(localStorage.getItem('importantSketches')) || [];
-  
-  // Show sketches section
-  importantSketchesBtn.addEventListener('click', () => {
-    importantSketchesSection.classList.remove('hidden');
-    renderSavedSketches();
-  });
-  
-  // Hide sketches section
-  closeSketchesBtn.addEventListener('click', () => {
-    importantSketchesSection.classList.add('hidden');
-  });
-  
-  // Handle sketch uploads
-  sketchUpload.addEventListener('change', (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
-    Array.from(files).forEach(file => {
-      if (!file.type.startsWith('image/')) return;
-      
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const imageData = event.target.result;
-        const sketchName = file.name;
-        
-        // Add to saved sketches
-        savedSketches.push({
-          id: Date.now() + Math.random().toString(36).substr(2, 9),
-          name: sketchName,
-          data: imageData
-        });
-        
-        // Save to localStorage
-        localStorage.setItem('importantSketches', JSON.stringify(savedSketches));
-        
-        // Update gallery
-        renderSavedSketches();
-      };
-      
-      reader.readAsDataURL(file);
-    });
-  });
-  
-  // Render all saved sketches in gallery
-  function renderSavedSketches() {
-    sketchesGallery.innerHTML = '';
-    
-    if (savedSketches.length === 0) {
-      sketchesGallery.innerHTML = '<p>Aucun croquis importé pour le moment. Cliquez sur "Importer Croquis" pour en ajouter.</p>';
-      return;
-    }
-    
-    savedSketches.forEach(sketch => {
-      const sketchItem = document.createElement('div');
-      sketchItem.className = 'sketch-item';
-      sketchItem.innerHTML = `
-        <img src="${sketch.data}" alt="${sketch.name}" title="${sketch.name}">
-        <p>${sketch.name.length > 15 ? sketch.name.substring(0, 12) + '...' : sketch.name}</p>
-        <button class="delete-btn" data-id="${sketch.id}">×</button>
-      `;
-      
-      // Add click event to load sketch into canvas
-      sketchItem.querySelector('img').addEventListener('click', () => {
-        loadSketchToCanvas(sketch.data);
-        importantSketchesSection.classList.add('hidden');
-      });
-      
-      // Add delete functionality
-      sketchItem.querySelector('.delete-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteSketch(sketch.id);
-      });
-      
-      sketchesGallery.appendChild(sketchItem);
-    });
-  }
-  
-  // Load a sketch into the canvas
-  function loadSketchToCanvas(imageData) {
-    const img = new Image();
-    img.onload = function() {
-      // Clear current canvas
-      paths = [];
-      
-      // Clear canvas
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Calculate aspect ratio to fit image properly
-      const scale = Math.min(
-        canvas.width / img.width,
-        canvas.height / img.height
-      ) * 0.8; // Scale to 80% of available space
-      
-      const newWidth = img.width * scale;
-      const newHeight = img.height * scale;
-      
-      // Center the image
-      const x = (canvas.width - newWidth) / 2;
-      const y = (canvas.height - newHeight) / 2;
-      
-      // Draw the image
-      ctx.drawImage(img, x, y, newWidth, newHeight);
-      
-      // Add a special entry to the paths array for imported sketches
-      // This will make the Clear Canvas button work with imported sketches
-      paths.push({
-        isImportedSketch: true,
-        imageData: imageData
-      });
-      
-      // Update the undo button visual state
-      undoBtn.classList.add('active');
-      
-      // Mark as changed to trigger prediction
-      drawingChanged = true;
-    };
-    img.src = imageData;
-  }
-  
-  // Delete a sketch from storage
-  function deleteSketch(id) {
-    savedSketches = savedSketches.filter(sketch => sketch.id !== id);
-    localStorage.setItem('importantSketches', JSON.stringify(savedSketches));
-    renderSavedSketches();
-  }
-  
-  // Save current canvas as an important sketch
-  function saveCurrentSketchAsImportant() {
-    if (paths.length === 0) {
-      alert('Veuillez dessiner quelque chose d\'abord !');
-      return;
-    }
-    
-    const sketchName = prompt('Entrez un nom pour ce croquis:', 'Croquis ' + (savedSketches.length + 1));
-    if (!sketchName) return;
-    
-    const imageData = canvas.toDataURL('image/png');
-    
-    savedSketches.push({
-      id: Date.now() + Math.random().toString(36).substr(2, 9),
-      name: sketchName,
-      data: imageData
-    });
-    
-    localStorage.setItem('importantSketches', JSON.stringify(savedSketches));
-    alert('Croquis enregistré avec succès !');
-  }
-  
-  // Add right-click context menu to canvas for saving sketches
-  canvas.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    if (paths.length > 0) {
-      saveCurrentSketchAsImportant();
-    }
-    return false;
-  });
+  console.log('Script.js loaded - functions exposed to global scope');
 });

@@ -122,6 +122,45 @@
     function toggleStylePanel() {
       const panel = document.getElementById('stylePanel');
       panel.classList.toggle('hidden');
+      
+      // Add event listener to close panel when clicking outside
+      if (!panel.classList.contains('hidden')) {
+        // Panel is now open, add click-outside listener
+        setTimeout(() => {
+          document.addEventListener('click', handleClickOutsideStylePanel);
+          document.addEventListener('keydown', handleEscapeKeyStylePanel);
+        }, 0); // Use setTimeout to avoid immediate triggering
+      } else {
+        // Panel is now closed, remove click-outside listener
+        document.removeEventListener('click', handleClickOutsideStylePanel);
+        document.removeEventListener('keydown', handleEscapeKeyStylePanel);
+      }
+    }
+    
+    // Function to handle clicking outside the style panel
+    function handleClickOutsideStylePanel(event) {
+      const panel = document.getElementById('stylePanel');
+      const styleButton = document.getElementById('styleToggleBtn');
+      
+      // Check if the click was outside both the panel and the style button
+      if (!panel.contains(event.target) && !styleButton.contains(event.target)) {
+        // Close the panel
+        panel.classList.add('hidden');
+        // Remove the event listeners
+        document.removeEventListener('click', handleClickOutsideStylePanel);
+        document.removeEventListener('keydown', handleEscapeKeyStylePanel);
+      }
+    }
+    
+    // Function to handle ESC key to close style panel
+    function handleEscapeKeyStylePanel(event) {
+      if (event.key === 'Escape') {
+        const panel = document.getElementById('stylePanel');
+        panel.classList.add('hidden');
+        // Remove the event listeners
+        document.removeEventListener('click', handleClickOutsideStylePanel);
+        document.removeEventListener('keydown', handleEscapeKeyStylePanel);
+      }
     }
     
     // Function to select a style
@@ -144,9 +183,12 @@
         styleText.textContent = selectedLabel;
       }
       
-      // Hide the panel after selection
+      // Hide the panel after selection and clean up event listeners
       setTimeout(() => {
-        toggleStylePanel();
+        const panel = document.getElementById('stylePanel');
+        panel.classList.add('hidden');
+        document.removeEventListener('click', handleClickOutsideStylePanel);
+        document.removeEventListener('keydown', handleEscapeKeyStylePanel);
       }, 300);
       
       console.log('Style selected:', style);
@@ -157,40 +199,126 @@
       const promptInput = document.getElementById('personalPrompt');
       let prompt = promptInput.value.trim();
       
-      if (prompt) {
+      if (!prompt) {
+        alert('Veuillez saisir un prompt textuel pour générer une image !');
+        return;
+      }
+      
+      // Clear the input
+      promptInput.value = '';
+      
+      // Cancel any pending prompt
+      if (window.hidePrompt) window.hidePrompt();
+      
+      // Show loader
+      if (window.showLoader) window.showLoader();
+      
+      // Prepare the generation request (text-to-image only, Step 5)
+      generateTextToImage(prompt);
+    }
+    
+    // Function to generate image from text only (Step 5 of workflow)
+    async function generateTextToImage(personalPrompt) {
+      try {
+        console.log('Starting text-to-image generation (Step 5)...');
+        
         // Add selected style to prompt if one is selected
+        let enhancedPrompt = personalPrompt;
         if (window.selectedStyle) {
           const styleMap = {
-            'realistic': 'in realistic style',
-            'cartoon': 'in cartoon style',
-            'anime': 'in anime style',
-            'watercolor': 'in watercolor painting style',
-            'oil-painting': 'in oil painting style',
-            'sketch': 'in sketch style',
-            'digital-art': 'in digital art style',
-            '3d-render': 'in 3D rendered style',
-            'pop-art': 'in pop art style',
-            'minimalist': 'in minimalist style',
-            'vintage': 'in vintage style',
-            'cyberpunk': 'in cyberpunk style'
+            'watercolor': 'dans le style aquarelle',
+            'illustration': 'dans le style illustration',
+            'pop-art': 'dans le style pop art',
+            'sketch': 'dans le style croquis',
+            '3d-anime': 'dans le style dessin animé 3D',
+            'oil-painting': 'dans le style peinture à l\'huile'
           };
           
-          const stylePrompt = styleMap[window.selectedStyle] || '';
-          if (stylePrompt) {
-            prompt += ', ' + stylePrompt;
-          }
+          const styleText = styleMap[window.selectedStyle] || `dans le style ${window.selectedStyle}`;
+          enhancedPrompt = `${personalPrompt}, ${styleText}`;
         }
         
-        // Clear the input
-        promptInput.value = '';
+        console.log('Enhanced prompt with style:', enhancedPrompt);
+        console.log('Selected style:', window.selectedStyle || 'none');
+        
+        // Prepare payload for text-to-image generation (no image, only prompt)
+        const payload = {
+          // No image provided - this triggers Step 5 (text-to-image with Stable Diffusion)
+          image: null,
+          style: window.selectedStyle || null,
+          question: null,
+          answer: null,
+          personalPrompt: enhancedPrompt
+        };
+        
+        console.log('Sending text-to-image request:', payload);
+        
+        // Send request to backend
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        
+        const json = await res.json();
+        
+        if (res.ok && json.image) {
+          console.log('Text-to-image generation successful');
+          console.log('Service used:', json.fallbackType);
+          console.log('Used fallback:', json.fallback);
+          
+          // Show the result using the existing result display system
+          if (window.showResult) {
+            window.showResult(json.image);
+          } else {
+            // Fallback if showResult is not available
+            displayGeneratedImage(json.image);
+          }
+        } else {
+          if (window.hideLoader) window.hideLoader();
+          console.error('Text-to-image generation error:', json.error);
+          alert('Une erreur est survenue lors de la génération de l\'image à partir du texte.');
+        }
+      } catch (err) {
+        if (window.hideLoader) window.hideLoader();
+        console.error('Text-to-image generation failed:', err);
+        alert('Une erreur est survenue lors de la génération de l\'image à partir du texte.');
       }
     }
+    
+    // Fallback function to display generated image if showResult is not available
+    function displayGeneratedImage(imageUrl) {
+      const resultContainer = document.getElementById('resultContainer');
+      const resultImage = document.getElementById('resultImage');
+      const loader = document.getElementById('loader');
+      
+      if (resultContainer && resultImage) {
+        resultImage.src = imageUrl;
+        resultImage.onload = () => {
+          if (loader) loader.classList.add('hidden');
+          resultContainer.classList.remove('hidden');
+        };
+        resultImage.onerror = () => {
+          if (loader) loader.classList.add('hidden');
+          alert('Erreur lors du chargement de l\'image générée.');
+        };
+      }
+    }
+    
+    // Make functions available globally
+    window.generateFromChat = generateFromChat;
+    window.generateTextToImage = generateTextToImage;
+    window.displayGeneratedImage = displayGeneratedImage;
     
     // Handle Enter key in chat input
     function handleChatKeyPress(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
-        generateFromChat();
+        // Trigger the main generate button click event instead of calling generateFromChat directly
+        const generateButton = document.getElementById('generateBtn');
+        if (generateButton) {
+          generateButton.click();
+        }
       }
     }
   </script>
@@ -234,12 +362,7 @@
         <button id="circleBtn" class="toolButton shapeBtn" title="Cercle">⚪</button>
         <button id="triangleBtn" class="toolButton shapeBtn" title="Triangle">▲</button>
         <button id="lineBtn" class="toolButton shapeBtn" title="Ligne">━</button>
-        
-        <!-- Divider for bottom panel buttons -->
-        <div class="panel-divider"></div>
-        
-        <!-- Important sketches button -->
-        <button id="importantSketchesBtn" class="toolButton" title="Croquis Importants">📁</button>
+        <button id="fillToolBtn" class="toolButton shapeBtn" title="Remplissage">🎨</button>
         
         <!-- Divider for home button -->
         <div class="panel-divider"></div>
@@ -265,7 +388,7 @@
         </div>
         
         <!-- Generate button (right) -->
-        <button id="generateBtn" class="toolbar-btn generate-btn" title="Générer" onclick="generateFromChat()">
+        <button id="generateBtn" class="toolbar-btn generate-btn" title="Générer">
           <div class="generate-arrow">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M5 12h14m-7-7 7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -333,125 +456,8 @@
     </div>
   </div>
 
-  <!-- Important Sketches Section -->
-  <div id="importantSketchesSection" class="overlay hidden">
-    <div class="sketches-container">
-      <h2 style="margin-top: 0; color: var(--text-dark); font-size: 1.75rem; border-bottom: 2px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">Croquis Importants</h2>
-      <div class="sketches-controls" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-        <input type="file" id="sketchUpload" accept="image/*" multiple>
-        <label for="sketchUpload" class="upload-btn">Importer Croquis</label>
-        <button id="closeSketchesBtn" class="close-btn">Fermer</button>
-      </div>
-      <div id="sketchesGallery" class="sketches-gallery">
-        <!-- Sketches will be displayed here -->
-      </div>
-    </div>
-  </div>
-
   <!-- Add CSS for the new elements -->
   <style>
-    /* Important Sketches Section */
-    .sketches-container {
-      background-color: white;
-      border-radius: 12px;
-      max-width: 90%;
-      max-height: 80%;
-      padding: 24px;
-      overflow-y: auto;
-      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-      border: 1px solid rgba(65, 105, 225, 0.1);
-    }
-    
-    .sketches-gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 15px;
-      margin-top: 15px;
-    }
-    
-    .sketch-item {
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 8px;
-      text-align: center;
-      position: relative;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease;
-      background: white;
-    }
-    
-    .sketch-item:hover {
-      box-shadow: 0 4px 12px rgba(65, 105, 225, 0.15);
-      border-color: rgba(65, 105, 225, 0.3);
-      transform: translateY(-2px);
-    }
-    
-    .sketch-item img {
-      max-width: 100%;
-      max-height: 150px;
-      object-fit: contain;
-    }
-    
-    .sketch-item .delete-btn {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: linear-gradient(135deg, #ff4d4d 0%, #ff69b4 100%);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      font-size: 12px;
-      cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-      transition: all 0.2s ease;
-    }
-    
-    .sketch-item .delete-btn:hover {
-      background: linear-gradient(135deg, #ff3333 0%, #ff4dab 100%);
-      transform: scale(1.1);
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
-    }
-    
-    .upload-btn {
-      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
-      color: white;
-      padding: 8px 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      display: inline-block;
-      margin-right: 10px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      transition: all 0.3s ease;
-    }
-    
-    .upload-btn:hover {
-      background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-    }
-    
-    input[type="file"] {
-      display: none;
-    }
-    
-    .close-btn {
-      background: linear-gradient(135deg, #ff4d4d 0%, #ff69b4 100%); /* Redder gradient for close button */
-      color: white;
-      padding: 8px 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      transition: all 0.3s ease;
-    }
-    
-    .close-btn:hover {
-      background: linear-gradient(135deg, #ff3333 0%, #ff4dab 100%);
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-    }
-    
     /* Panel divider */
     .panel-divider {
       height: 2px;

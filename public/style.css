@@ -640,43 +640,6 @@ html, body {
   border: 1px solid var(--panel-border);
 }
 
-.button-container {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 5px;
-}
-
-.apply-btn, .cancel-btn {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
-  cursor: pointer;
-  flex: 1;
-}
-
-.apply-btn {
-  background: linear-gradient(135deg, #7460C4 0%, #381978 100%);
-  color: white;
-}
-
-.apply-btn:hover {
-  background: linear-gradient(135deg, #381978 0%, #7460C4 100%);
-  box-shadow: 0 2px 8px rgba(56, 25, 120, 0.4);
-}
-
-.cancel-btn {
-  background-color: #f1f1f1;
-  color: #333;
-  border: 1px solid #ddd;
-}
-
-.cancel-btn:hover {
-  background-color: #e7e7e7;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
 /* Bottom panel */
 #bottomPanel {
   position: absolute;
@@ -1109,5 +1072,158 @@ html, body {
   .personal-prompt {
     height: 50px;
     font-size: 0.9rem;
+  }
+}
+
+/* Censorship Warning Overlay Styles */
+#censorshipOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.censorship-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  /* Removed backdrop-filter to prevent blur interference */
+}
+
+.censorship-container {
+  position: relative;
+  background: #ffffff;
+  border: 3px solid #dc2626;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(220, 38, 38, 0.3);
+  animation: censorshipPulse 0.5s ease-out;
+  z-index: 10001; /* Higher than backdrop to ensure it's visible above the blur */
+}
+
+@keyframes censorshipPulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.censorship-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  animation: censorshipShake 0.8s ease-in-out infinite;
+}
+
+@keyframes censorshipShake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+
+.censorship-title {
+  color: #dc2626;
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0 0 20px 0;
+  text-shadow: 2px 2px 4px rgba(220, 38, 38, 0.1);
+}
+
+.censorship-message {
+  color: #374151;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin: 0 0 30px 0;
+}
+
+.censorship-home-btn {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+}
+
+.censorship-home-btn:hover {
+  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+}
+
+.censorship-home-btn:active {
+  transform: translateY(0);
+}
+
+/* Fill tool styling */
+#fillToolBtn {
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+#fillToolBtn:hover {
+  background: linear-gradient(135deg, #ff4d7a 0%, #a63555 100%);
+  transform: scale(1.1);
+}
+
+#fillToolBtn.active,
+#fillToolBtn.active-eraser {
+  background: linear-gradient(135deg, #ff3d6b 0%, #8b2943 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
+  transform: scale(1.05);
+}
+
+/* Fill mode cursor animation */
+.fill-cursor {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M10 2L12 8H18L13 12L15 18L10 14L5 18L7 12L2 8H8L10 2Z' fill='%23ff6b6b'/%3E%3C/svg%3E") 10 10, auto;
+}
+
+/* Shape fill indicator */
+.shape-fill-indicator {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 107, 157, 0.9);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  z-index: 1000;
+  animation: fadeInScale 0.3s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
   }
 }
