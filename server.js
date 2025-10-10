@@ -416,7 +416,7 @@ Exemples de réponses valides:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    
+     
     // Parse the response
     const data = await response.json();
     let guess = '';
